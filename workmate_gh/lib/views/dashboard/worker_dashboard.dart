@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/time_tracking_service.dart';
+import 'package:workmate_gh/services/auth_service.dart';
 
 class WorkerDashboard extends StatefulWidget {
   final AppUser user;
@@ -46,16 +47,35 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Welcome, ${widget.user.name}',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Worker Dashboard',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, ${widget.user.name}',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Worker Dashboard',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
 
@@ -189,6 +209,27 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         ),
       ),
     );
+  }
+
+  Future<void> _logout() async {
+    try {
+      final authService = AuthService();
+      await authService.signOut();
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _toggleClock() async {

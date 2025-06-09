@@ -3,6 +3,7 @@ import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/models/company.dart';
 import 'package:workmate_gh/services/company_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
+import 'package:workmate_gh/views/admin/assign_manager_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final AppUser user;
@@ -52,6 +53,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  Future<void> _logout() async {
+    try {
+      final authService = AuthService();
+      await authService.signOut();
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -60,16 +82,35 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Welcome, ${widget.user.name}',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Administrator Dashboard',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, ${widget.user.name}',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Administrator Dashboard',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             _isLoading
@@ -214,60 +255,72 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
     );
   }
-
   void _showManagerManagement() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Manager Management'),
-            content: SizedBox(
-              width: double.maxFinite,
-              height: 400,
-              child: Column(
+      builder: (context) => AlertDialog(
+        title: const Text('Manager Management'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 400,
+          child: Column(
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('Managers (${_managers.length})')),
-                      ElevatedButton(
-                        onPressed: _createNewManager,
-                        child: const Text('Add Manager'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _managers.length,
-                      itemBuilder: (context, index) {
-                        final manager = _managers[index];
-                        return ListTile(
-                          title: Text(manager.name),
-                          subtitle: Text(
-                            '${manager.email}\nCompany: ${manager.companyId}',
+                  Expanded(child: Text('Managers (${_managers.length})')),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context); // Close the dialog first
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AssignManagerScreen(
+                            currentUser: widget.user,
                           ),
-                          trailing:
-                              manager.isActive
-                                  ? const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green,
-                                  )
-                                  : const Icon(Icons.cancel, color: Colors.red),
-                          isThreeLine: true,
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                      if (result == true) {
+                        // Refresh data if manager was created successfully
+                        _loadData();
+                      }
+                    },
+                    child: const Text('Add Manager'),
                   ),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _managers.length,
+                  itemBuilder: (context, index) {
+                    final manager = _managers[index];
+                    return ListTile(
+                      title: Text(manager.name),
+                      subtitle: Text(
+                        '${manager.email}\nCompany: ${manager.companyId}',
+                      ),
+                      trailing:
+                          manager.isActive
+                              ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              )
+                              : const Icon(Icons.cancel, color: Colors.red),
+                      isThreeLine: true,
+                    );
+                  },
+                ),
               ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -461,131 +514,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ],
           ),
-    );
-  }
-
-  void _createNewManager() {
-    final nameController = TextEditingController();
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-    String? selectedCompanyId;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setState) => AlertDialog(
-                  title: const Text('Create New Manager'),
-                  content: SizedBox(
-                    width: 400,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(
-                          controller: nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Full Name',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: emailController,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: selectedCompanyId,
-                          decoration: const InputDecoration(
-                            labelText: 'Company',
-                            border: OutlineInputBorder(),
-                          ),
-                          items:
-                              _companies.map((company) {
-                                return DropdownMenuItem(
-                                  value: company.id,
-                                  child: Text(company.name),
-                                );
-                              }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              selectedCompanyId = value;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (nameController.text.trim().isNotEmpty &&
-                            emailController.text.trim().isNotEmpty &&
-                            passwordController.text.trim().isNotEmpty &&
-                            selectedCompanyId != null) {
-                          final navigator = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(context);
-
-                          try {
-                            final authService = AuthService();
-                            await authService.createManagerUser(
-                              email: emailController.text.trim(),
-                              password: passwordController.text.trim(),
-                              name: nameController.text.trim(),
-                              companyId: selectedCompanyId!,
-                              createdBy: widget.user.uid,
-                            );
-
-                            if (mounted) {
-                              navigator.pop();
-                              navigator.pop(); // Close parent dialog
-                            }
-                            _loadData(); // Refresh data
-
-                            if (mounted) {
-                              messenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Manager created successfully!',
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text('Error creating manager: $e'),
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
-                      child: const Text('Create'),
-                    ),
-                  ],
-                ),
-          ),
-    );
-  }
+    );  }
 
   void _editCompany(Company company) {
     // Navigate to company editing screen
