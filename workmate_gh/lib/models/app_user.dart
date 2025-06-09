@@ -99,8 +99,9 @@ class AppUser {
 
   bool canManageUser(AppUser other) {
     if (isAdmin) return true; // Admin can manage all users
-    if (isManager && other.isWorker && other.companyId == companyId)
+    if (isManager && other.isWorker && other.companyId == companyId) {
       return true;
+    }
     return false;
   }
 }

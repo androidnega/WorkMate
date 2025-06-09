@@ -36,7 +36,9 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
       // Log error - consider using a proper logging framework in production
       // print('Error loading status: $e');
     }
-  }  @override
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -90,7 +92,9 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                               ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                               : Icon(_isClockedIn ? Icons.logout : Icons.login),
                       label: Text(
@@ -99,7 +103,8 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                             : (_isClockedIn ? 'Clock Out' : 'Clock In'),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isClockedIn ? Colors.red : Colors.green,
+                        backgroundColor:
+                            _isClockedIn ? Colors.red : Colors.green,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24,
@@ -149,88 +154,39 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                       );
                     },
                   ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isClockedIn ? Colors.red : Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
+                  _buildDashboardCard(
+                    'Leave Requests',
+                    'Request time off',
+                    Icons.event_busy,
+                    Colors.orange,
+                    () {
+                      // Navigate to leave requests screen
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Leave requests feature coming soon!'),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDashboardCard(
+                    'Profile',
+                    'View and edit your profile',
+                    Icons.person,
+                    Colors.purple,
+                    () {
+                      // Navigate to profile screen
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile feature coming soon!'),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-          ),
-
-          const SizedBox(height: 24),
-
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              children: [
-                _buildDashboardCard(
-                  'My Timesheet',
-                  'View your time tracking history',
-                  Icons.history,
-                  Colors.blue,
-                  () {
-                    // Navigate to timesheet screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Timesheet feature coming soon!'),
-                      ),
-                    );
-                  },
-                ),
-                _buildDashboardCard(
-                  'Schedule',
-                  'View your work schedule',
-                  Icons.calendar_today,
-                  Colors.green,
-                  () {
-                    // Navigate to schedule screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Schedule feature coming soon!'),
-                      ),
-                    );
-                  },
-                ),
-                _buildDashboardCard(
-                  'Leave Requests',
-                  'Request time off',
-                  Icons.event_busy,
-                  Colors.orange,
-                  () {
-                    // Navigate to leave requests screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Leave requests feature coming soon!'),
-                      ),
-                    );
-                  },
-                ),
-                _buildDashboardCard(
-                  'Profile',
-                  'View and edit your profile',
-                  Icons.person,
-                  Colors.purple,
-                  () {
-                    // Navigate to profile screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Profile feature coming soon!'),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
