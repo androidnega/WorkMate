@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/time_tracking_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
+import 'package:workmate_gh/core/theme/app_theme.dart';
 
 class WorkerDashboard extends StatefulWidget {
   final AppUser user;

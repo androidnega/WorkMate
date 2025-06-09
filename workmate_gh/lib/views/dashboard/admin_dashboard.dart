@@ -4,6 +4,7 @@ import 'package:workmate_gh/models/company.dart';
 import 'package:workmate_gh/services/company_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
 import 'package:workmate_gh/views/admin/assign_manager_screen.dart';
+import 'package:workmate_gh/core/theme/app_theme.dart';
 
 class AdminDashboard extends StatefulWidget {
   final AppUser user;
@@ -76,87 +77,147 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome, ${widget.user.name}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Administrator Dashboard',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
+                // Header Section
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.borderLight, width: 1),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _isLoading
-                ? const SizedBox(
-                  height: 400,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-                : SizedBox(
-                  height: MediaQuery.of(context).size.height - 200,
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
+                  child: Row(
                     children: [
-                      _buildDashboardCard(
-                        'Company Management',
-                        'Manage companies (${_companies.length})',
-                        Icons.business,
-                        Colors.blue,
-                        () => _showCompanyManagement(),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.successGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.admin_panel_settings,
+                          color: AppTheme.successGreen,
+                          size: 24,
+                        ),
                       ),
-                      _buildDashboardCard(
-                        'Manager Assignment',
-                        'Assign managers to companies (${_managers.length})',
-                        Icons.people,
-                        Colors.green,
-                        () => _showManagerManagement(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, ${widget.user.name}',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineSmall?.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Administrator Dashboard',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
-                      _buildDashboardCard(
-                        'System Reports',
-                        'View system-wide reports',
-                        Icons.assessment,
-                        Colors.purple,
-                        () => _showSystemReports(),
-                      ),
-                      _buildDashboardCard(
-                        'User Management',
-                        'Manage all system users',
-                        Icons.group,
-                        Colors.orange,
-                        () => _showUserManagement(),
+                      Container(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout, size: 18),
+                          label: const Text('Logout'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade500,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-          ],
+
+                const SizedBox(height: 24),
+
+                _isLoading
+                    ? Container(
+                      height: 400,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.borderLight,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.successGreen,
+                          ),
+                          strokeWidth: 3,
+                        ),
+                      ),
+                    )
+                    : GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: [
+                        _buildDashboardCard(
+                          'Company Management',
+                          'Manage companies (${_companies.length})',
+                          Icons.business,
+                          AppTheme.infoBlue,
+                          () => _showCompanyManagement(),
+                        ),
+                        _buildDashboardCard(
+                          'Manager Assignment',
+                          'Assign managers to companies (${_managers.length})',
+                          Icons.people,
+                          AppTheme.successGreen,
+                          () => _showManagerManagement(),
+                        ),
+                        _buildDashboardCard(
+                          'System Reports',
+                          'View system-wide reports',
+                          Icons.assessment,
+                          Colors.purple.shade500,
+                          () => _showSystemReports(),
+                        ),
+                        _buildDashboardCard(
+                          'User Management',
+                          'Manage all system users',
+                          Icons.group,
+                          AppTheme.warningOrange,
+                          () => _showUserManagement(),
+                        ),
+                      ],
+                    ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -169,33 +230,52 @@ class _AdminDashboardState extends State<AdminDashboard> {
     Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderLight, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, size: 32, color: color),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.3,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -255,72 +335,75 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
     );
   }
+
   void _showManagerManagement() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Manager Management'),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 400,
-          child: Column(
-            children: [
-              Row(
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Manager Management'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: Column(
                 children: [
-                  Expanded(child: Text('Managers (${_managers.length})')),
-                  ElevatedButton(
-                    onPressed: () async {
-                      Navigator.pop(context); // Close the dialog first
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AssignManagerScreen(
-                            currentUser: widget.user,
+                  Row(
+                    children: [
+                      Expanded(child: Text('Managers (${_managers.length})')),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context); // Close the dialog first
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => AssignManagerScreen(
+                                    currentUser: widget.user,
+                                  ),
+                            ),
+                          );
+                          if (result == true) {
+                            // Refresh data if manager was created successfully
+                            _loadData();
+                          }
+                        },
+                        child: const Text('Add Manager'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _managers.length,
+                      itemBuilder: (context, index) {
+                        final manager = _managers[index];
+                        return ListTile(
+                          title: Text(manager.name),
+                          subtitle: Text(
+                            '${manager.email}\nCompany: ${manager.companyId}',
                           ),
-                        ),
-                      );
-                      if (result == true) {
-                        // Refresh data if manager was created successfully
-                        _loadData();
-                      }
-                    },
-                    child: const Text('Add Manager'),
+                          trailing:
+                              manager.isActive
+                                  ? const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                  )
+                                  : const Icon(Icons.cancel, color: Colors.red),
+                          isThreeLine: true,
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _managers.length,
-                  itemBuilder: (context, index) {
-                    final manager = _managers[index];
-                    return ListTile(
-                      title: Text(manager.name),
-                      subtitle: Text(
-                        '${manager.email}\nCompany: ${manager.companyId}',
-                      ),
-                      trailing:
-                          manager.isActive
-                              ? const Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                              )
-                              : const Icon(Icons.cancel, color: Colors.red),
-                      isThreeLine: true,
-                    );
-                  },
-                ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -514,7 +597,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
             ],
           ),
-    );  }
+    );
+  }
 
   void _editCompany(Company company) {
     // Navigate to company editing screen

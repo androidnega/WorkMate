@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:workmate_gh/core/theme.dart';
+import 'package:workmate_gh/core/theme/app_theme.dart';
 import 'package:workmate_gh/core/constants.dart';
 import 'package:workmate_gh/views/auth/login_screen.dart';
 import 'package:workmate_gh/views/auth/change_password_screen.dart';
@@ -26,14 +26,20 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppConstants.appName,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
+      themeMode:
+          ThemeMode.system, // Automatically switch based on system preference
       home: const AuthWrapper(),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/change-password': (context) => const ChangePasswordScreen(),
+      },
+      debugShowCheckedModeBanner: false, // Remove debug banner
     );
   }
 }

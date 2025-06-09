@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/company_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
+import 'package:workmate_gh/core/theme/app_theme.dart';
 
 class ManagerDashboard extends StatefulWidget {
   final AppUser user;
@@ -66,87 +67,147 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome, ${widget.user.name}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Manager Dashboard',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
+                // Header Section
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.borderLight, width: 1),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _isLoading
-                ? const SizedBox(
-                  height: 400,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-                : SizedBox(
-                  height: MediaQuery.of(context).size.height - 200,
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
+                  child: Row(
                     children: [
-                      _buildDashboardCard(
-                        'Worker Management',
-                        'Manage workers (${_workers.length})',
-                        Icons.group,
-                        Colors.blue,
-                        () => _showWorkerManagement(),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.successGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.dashboard,
+                          color: AppTheme.successGreen,
+                          size: 24,
+                        ),
                       ),
-                      _buildDashboardCard(
-                        'Create Worker',
-                        'Add new worker to company',
-                        Icons.person_add,
-                        Colors.green,
-                        () => _showCreateWorker(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, ${widget.user.name}',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineSmall?.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Manager Dashboard',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
                       ),
-                      _buildDashboardCard(
-                        'Team Attendance',
-                        'Monitor team time tracking',
-                        Icons.access_time,
-                        Colors.orange,
-                        () => _showTeamAttendance(),
-                      ),
-                      _buildDashboardCard(
-                        'Team Reports',
-                        'View team performance reports',
-                        Icons.bar_chart,
-                        Colors.purple,
-                        () => _showTeamReports(),
+                      Container(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout, size: 18),
+                          label: const Text('Logout'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade500,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-          ],
+
+                const SizedBox(height: 24),
+
+                _isLoading
+                    ? Container(
+                      height: 400,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardWhite,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.borderLight,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.successGreen,
+                          ),
+                          strokeWidth: 3,
+                        ),
+                      ),
+                    )
+                    : GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: [
+                        _buildDashboardCard(
+                          'Worker Management',
+                          'Manage workers (${_workers.length})',
+                          Icons.group,
+                          AppTheme.successGreen,
+                          () => _showWorkerManagement(),
+                        ),
+                        _buildDashboardCard(
+                          'Create Worker',
+                          'Add new worker to company',
+                          Icons.person_add,
+                          AppTheme.infoBlue,
+                          () => _showCreateWorker(),
+                        ),
+                        _buildDashboardCard(
+                          'Team Attendance',
+                          'Monitor team time tracking',
+                          Icons.access_time,
+                          AppTheme.warningOrange,
+                          () => _showTeamAttendance(),
+                        ),
+                        _buildDashboardCard(
+                          'Team Reports',
+                          'View team performance reports',
+                          Icons.bar_chart,
+                          Colors.purple.shade500,
+                          () => _showTeamReports(),
+                        ),
+                      ],
+                    ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -159,33 +220,52 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderLight, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, size: 32, color: color),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.3,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),
