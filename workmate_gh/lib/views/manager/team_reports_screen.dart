@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/time_tracking_service.dart';
 import 'package:workmate_gh/services/company_service.dart';
+import 'package:workmate_gh/services/report_service.dart';
 import 'package:workmate_gh/core/theme/app_theme.dart';
 
 class TeamReportsScreen extends StatefulWidget {
@@ -16,11 +17,13 @@ class TeamReportsScreen extends StatefulWidget {
 class _TeamReportsScreenState extends State<TeamReportsScreen> {
   final TimeTrackingService _timeTrackingService = TimeTrackingService();
   final CompanyService _companyService = CompanyService();
+  final ReportService _reportService = ReportService();
 
   List<AppUser> _workers = [];
   Map<String, double> _workerHours = {};
   Map<String, List<TimeEntry>> _workerEntries = {};
   bool _isLoading = true;
+  bool _isExporting = false;
 
   DateTime _selectedStartDate = DateTime.now().subtract(
     const Duration(days: 7),
@@ -45,7 +48,119 @@ class _TeamReportsScreenState extends State<TeamReportsScreen> {
       final workerHours = <String, double>{};
       final workerEntries = <String, List<TimeEntry>>{};
 
+  Future<void> _loadTeamData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Load workers for this manager's company
+      final workers = await _companyService.getWorkersByCompany(
+        widget.manager.companyId,
+      );
+
+      final workerHours = <String, double>{};
+      final workerEntries = <String, List<TimeEntry>>{};
+
       // Load time tracking data for each worker
+      for (final worker in workers) {
+        final entries = await _timeTrackingService.getTimeEntries(
+          startDate: _selectedStartDate,
+          endDate: _selectedEndDate,
+          userId: worker.uid,
+        );
+
+        workerEntries[worker.uid] = entries;
+
+        // Calculate total hours worked
+        double totalHours = 0.0;
+        for (final entry in entries) {
+          if (entry.type == TimeEntryType.clockIn) {
+            // Find corresponding clock out
+            final clockOut = entries.firstWhere(
+              (e) => e.type == TimeEntryType.clockOut && 
+                     e.timestamp.isAfter(entry.timestamp),
+              orElse: () => entry, // If no clock out, use same entry
+            );
+            
+            if (clockOut.type == TimeEntryType.clockOut) {
+              final duration = clockOut.timestamp.difference(entry.timestamp);
+                // Subtract break time
+              final breaks = await _timeTrackingService.getBreaksForTimeEntry(entry.id);
+              Duration totalBreakTime = Duration.zero;
+              for (final breakRecord in breaks) {
+                if (!breakRecord.isPaidBreak) {
+                  totalBreakTime += breakRecord.duration;
+                }
+              }
+              
+              final effectiveDuration = duration - totalBreakTime;
+              totalHours += effectiveDuration.inMinutes / 60.0;
+            }
+          }
+        }
+
+        workerHours[worker.uid] = totalHours;
+      }
+
+      setState(() {
+        _workers = workers;
+        _workerHours = workerHours;
+        _workerEntries = workerEntries;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading team data: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToCSV() async {
+    setState(() => _isExporting = true);
+
+    try {
+      // Combine all entries for CSV export
+      final allEntries = <TimeEntry>[];
+      final userMap = <String, AppUser>{};
+      
+      for (final worker in _workers) {
+        userMap[worker.uid] = worker;
+        allEntries.addAll(_workerEntries[worker.uid] ?? []);
+      }
+
+      // Sort entries by timestamp
+      allEntries.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      // Generate CSV content
+      final csvContent = await _reportService.generateCSVReport(allEntries, userMap);
+      
+      // Download the CSV file
+      final filename = 'team_report_${DateTime.now().toString().split(' ')[0]}.csv';
+      _reportService.downloadCSV(csvContent, filename);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Report exported successfully!'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
       for (final worker in workers) {
         final hours = await _timeTrackingService.getTotalHoursWorked(
           startDate: _selectedStartDate,
@@ -95,7 +210,58 @@ class _TeamReportsScreenState extends State<TeamReportsScreen> {
         _selectedStartDate = picked.start;
         _selectedEndDate = picked.end;
       });
-      _loadTeamData();
+      _loadTeamData();    }
+  }
+
+  Future<void> _exportToCSV() async {
+    setState(() => _isExporting = true);
+
+    try {
+      // Collect all time entries for the selected period
+      final allEntries = <TimeEntry>[];
+      for (final entries in _workerEntries.values) {
+        allEntries.addAll(entries);
+      }
+
+      // Sort by timestamp
+      allEntries.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      // Create user map for CSV generation
+      final userMap = <String, AppUser>{};
+      for (final worker in _workers) {
+        userMap[worker.uid] = worker;
+      }
+
+      // Generate CSV
+      final csvContent = await _reportService.generateCSVReport(allEntries, userMap);
+      
+      // Create filename with date range
+      final startStr = '${_selectedStartDate.day}-${_selectedStartDate.month}-${_selectedStartDate.year}';
+      final endStr = '${_selectedEndDate.day}-${_selectedEndDate.month}-${_selectedEndDate.year}';
+      final filename = 'team_report_${startStr}_to_${endStr}.csv';
+
+      // Download CSV
+      _reportService.downloadCSV(csvContent, filename);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Report exported successfully!'),
+            backgroundColor: AppTheme.successGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
     }
   }
 
@@ -110,8 +276,18 @@ class _TeamReportsScreenState extends State<TeamReportsScreen> {
         title: const Text(
           'Team Reports',
           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 20),
-        ),
-        actions: [
+        ),        actions: [
+          IconButton(
+            onPressed: _exportToCSV,
+            icon: _isExporting 
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download),
+            tooltip: 'Export to CSV',
+          ),
           IconButton(
             onPressed: _selectDateRange,
             icon: const Icon(Icons.date_range),

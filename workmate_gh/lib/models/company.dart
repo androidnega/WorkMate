@@ -9,6 +9,8 @@ class Company {
   final DateTime createdAt;
   final bool isActive;
   final String adminId; // The admin who manages this company
+  final Map<String, double>? coordinates; // {latitude: x, longitude: y}
+  final double? locationRadius; // Radius in meters for location validation
 
   Company({
     required this.id,
@@ -21,6 +23,8 @@ class Company {
     required this.createdAt,
     this.isActive = true,
     required this.adminId,
+    this.coordinates,
+    this.locationRadius = 500.0, // Default 500 meters
   });
   factory Company.fromMap(Map<String, dynamic> data, String id) {
     return Company(
@@ -36,6 +40,11 @@ class Company {
       ),
       isActive: data['isActive'] ?? true,
       adminId: data['adminId'] ?? '',
+      coordinates:
+          data['coordinates'] != null
+              ? Map<String, double>.from(data['coordinates'])
+              : null,
+      locationRadius: data['locationRadius']?.toDouble() ?? 500.0,
     );
   }
   Map<String, dynamic> toMap() {
@@ -49,8 +58,11 @@ class Company {
       'createdAt': createdAt.toIso8601String(),
       'isActive': isActive,
       'adminId': adminId,
+      'coordinates': coordinates,
+      'locationRadius': locationRadius,
     };
   }
+
   Company copyWith({
     String? id,
     String? name,
@@ -62,6 +74,8 @@ class Company {
     DateTime? createdAt,
     bool? isActive,
     String? adminId,
+    Map<String, double>? coordinates,
+    double? locationRadius,
   }) {
     return Company(
       id: id ?? this.id,
@@ -74,6 +88,8 @@ class Company {
       createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
       adminId: adminId ?? this.adminId,
+      coordinates: coordinates ?? this.coordinates,
+      locationRadius: locationRadius ?? this.locationRadius,
     );
   }
 }

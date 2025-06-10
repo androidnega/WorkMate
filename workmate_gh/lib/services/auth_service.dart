@@ -109,15 +109,15 @@ class AuthService {
     } catch (e) {
       throw Exception('Failed to create worker: $e');
     }
-  }
+  } // Login user
 
-  // Login user
   Future<AppUser?> loginWithEmail(String email, String password) async {
     try {
       final result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
       final doc = await _db.collection('users').doc(result.user!.uid).get();
 
       if (!doc.exists) {
@@ -191,7 +191,6 @@ class AuthService {
       throw Exception('Failed to get users: $e');
     }
   }
-
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();
@@ -199,5 +198,93 @@ class AuthService {
 
   Future<void> logout() async {
     await _auth.signOut();
+  }
+
+  // Password reset functionality
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email);
+    } catch (e) {
+      throw Exception('Failed to send password reset email: $e');
+    }
+  }
+
+  // Change password for current user
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('No authenticated user found');
+      }
+
+      // Re-authenticate user with current password
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Update password
+      await user.updatePassword(newPassword);
+
+      // Update isDefaultPassword flag in Firestore
+      await _db.collection('users').doc(user.uid).update({
+        'isDefaultPassword': false,
+      });
+    } catch (e) {
+      throw Exception('Failed to change password: $e');
+    }
+  }
+
+  // Generate secure temporary password
+  String generateSecurePassword() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#%';
+    final random = DateTime.now().millisecondsSinceEpoch;
+    String password = '';
+    
+    for (int i = 0; i < 12; i++) {
+      password += chars[(random + i) % chars.length];
+    }
+    
+    return password;
+  }
+
+  // Create user with temporary password
+  Future<String> createUserWithTempPassword({
+    required String email,
+    required String name,
+    required UserRole role,
+    required String companyId,
+    required String createdBy,
+  }) async {
+    try {
+      final tempPassword = generateSecurePassword();
+      
+      final result = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: tempPassword,
+      );
+      final uid = result.user!.uid;
+
+      final user = AppUser(
+        uid: uid,
+        email: email,
+        name: name,
+        role: role,
+        companyId: companyId,
+        createdAt: DateTime.now(),
+        createdBy: createdBy,
+        isDefaultPassword: true,
+      );
+
+      await _db.collection('users').doc(uid).set(user.toMap());
+      
+      // Sign out the newly created user
+      await _auth.signOut();
+
+      return tempPassword;
+    } catch (e) {
+      throw Exception('Failed to create user: $e');
+    }
   }
 }

@@ -3,13 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// Mock test runner that simulates Firebase Security Rules testing
 /// without requiring actual Firebase emulators
 class MockSecurityRulesTester {
-  
   /// Run all security rule tests in simulation mode
   static Future<void> runMockTests() async {
     print('🔐 Firebase Security Rules Mock Testing Suite');
     print('============================================');
     print('');
-    
+
     // Simulate test scenarios and expected results
     final testResults = <String, bool>{
       'Admin can create companies': true,
@@ -28,20 +27,20 @@ class MockSecurityRulesTester {
       'Users cannot modify other users data': true,
       'Audit trails are protected': true,
     };
-    
+
     int passed = 0;
     int failed = 0;
-    
+
     print('📋 Running Security Rules Tests:');
     print('================================');
-    
+
     for (final entry in testResults.entries) {
       final testName = entry.key;
       final shouldPass = entry.value;
-      
+
       // Simulate test execution
       await Future.delayed(Duration(milliseconds: 100));
-      
+
       if (shouldPass) {
         print('✅ $testName');
         passed++;
@@ -50,14 +49,16 @@ class MockSecurityRulesTester {
         failed++;
       }
     }
-    
+
     print('');
     print('📊 Test Summary:');
     print('===============');
     print('✅ Passed: $passed');
     print('❌ Failed: $failed');
-    print('📈 Success Rate: ${(passed / (passed + failed) * 100).toStringAsFixed(1)}%');
-    
+    print(
+      '📈 Success Rate: ${(passed / (passed + failed) * 100).toStringAsFixed(1)}%',
+    );
+
     if (failed == 0) {
       print('');
       print('🎉 All Security Rules Tests Passed!');
@@ -66,11 +67,11 @@ class MockSecurityRulesTester {
       print('');
       print('⚠️  Some tests failed. Please review your security rules.');
     }
-    
+
     print('');
     print('📝 Security Rules Validation Complete');
     print('=====================================');
-    
+
     // Simulate checking actual rules file
     print('');
     print('🔍 Security Rules Analysis:');

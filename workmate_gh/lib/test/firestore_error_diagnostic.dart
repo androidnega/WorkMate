@@ -9,7 +9,8 @@ class FirestoreErrorDiagnostic extends StatefulWidget {
   const FirestoreErrorDiagnostic({super.key});
 
   @override
-  State<FirestoreErrorDiagnostic> createState() => _FirestoreErrorDiagnosticState();
+  State<FirestoreErrorDiagnostic> createState() =>
+      _FirestoreErrorDiagnosticState();
 }
 
 class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
@@ -66,14 +67,17 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _isRunning ? null : _runDiagnostic,
-              icon: _isRunning 
-                ? const SizedBox(
-                    width: 20, 
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.play_arrow),
-              label: Text(_isRunning ? 'Running Diagnostic...' : 'Run Diagnostic'),
+              icon:
+                  _isRunning
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.play_arrow),
+              label: Text(
+                _isRunning ? 'Running Diagnostic...' : 'Run Diagnostic',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,
@@ -90,45 +94,55 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
                     children: [
                       const Text(
                         'Diagnostic Results:',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const Divider(),
                       Expanded(
-                        child: _diagnosticResults.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'Click "Run Diagnostic" to check for issues',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: _diagnosticResults.length,
-                              itemBuilder: (context, index) {
-                                final result = _diagnosticResults[index];
-                                final isError = result.startsWith('❌');
-                                final isWarning = result.startsWith('⚠️');
-                                final isSuccess = result.startsWith('✅');
-                                
-                                Color? color;
-                                if (isError) color = Colors.red.shade700;
-                                if (isWarning) color = Colors.orange.shade700;
-                                if (isSuccess) color = Colors.green.shade700;
-                                
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                        child:
+                            _diagnosticResults.isEmpty
+                                ? const Center(
                                   child: Text(
-                                    result,
+                                    'Click "Run Diagnostic" to check for issues',
                                     style: TextStyle(
-                                      color: color,
-                                      fontFamily: 'monospace',
+                                      color: Colors.grey,
+                                      fontSize: 16,
                                     ),
                                   ),
-                                );
-                              },
-                            ),
+                                )
+                                : ListView.builder(
+                                  itemCount: _diagnosticResults.length,
+                                  itemBuilder: (context, index) {
+                                    final result = _diagnosticResults[index];
+                                    final isError = result.startsWith('❌');
+                                    final isWarning = result.startsWith('⚠️');
+                                    final isSuccess = result.startsWith('✅');
+
+                                    Color? color;
+                                    if (isError) color = Colors.red.shade700;
+                                    if (isWarning) {
+                                      color = Colors.orange.shade700;
+                                    }
+                                    if (isSuccess) {
+                                      color = Colors.green.shade700;
+                                    }
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
+                                      child: Text(
+                                        result,
+                                        style: TextStyle(
+                                          color: color,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                       ),
                     ],
                   ),
@@ -173,13 +187,13 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
       try {
         final testQuery = firestore.collection('_diagnostic_test').limit(1);
         _addResult('   Query created successfully');
-        
+
         final snapshot = await testQuery.get();
         _addResult('✅ Basic read successful! Docs: ${snapshot.docs.length}');
       } catch (e) {
         _addResult('❌ Basic read failed: $e');
         _addResult('   Error type: ${e.runtimeType}');
-        
+
         if (e.toString().contains('400')) {
           _addResult('   🎯 This is your 400 error!');
           _analyzeFirestoreError(e);
@@ -195,7 +209,9 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
         _addResult('   UID: ${currentUser.uid}');
       } else {
         _addResult('⚠️ No user authenticated');
-        _addResult('   This might affect Firestore access if security rules require auth');
+        _addResult(
+          '   This might affect Firestore access if security rules require auth',
+        );
       }
 
       // Test 5: Test User Collection Access
@@ -203,7 +219,9 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
       try {
         final usersRef = firestore.collection('users');
         final usersSnapshot = await usersRef.limit(1).get();
-        _addResult('✅ Users collection accessible (${usersSnapshot.docs.length} docs)');
+        _addResult(
+          '✅ Users collection accessible (${usersSnapshot.docs.length} docs)',
+        );
       } catch (e) {
         _addResult('❌ Users collection failed: $e');
         if (e.toString().contains('PERMISSION_DENIED')) {
@@ -216,7 +234,9 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
       try {
         final companiesRef = firestore.collection('companies');
         final companiesSnapshot = await companiesRef.limit(1).get();
-        _addResult('✅ Companies collection accessible (${companiesSnapshot.docs.length} docs)');
+        _addResult(
+          '✅ Companies collection accessible (${companiesSnapshot.docs.length} docs)',
+        );
       } catch (e) {
         _addResult('❌ Companies collection failed: $e');
         if (e.toString().contains('PERMISSION_DENIED')) {
@@ -247,7 +267,7 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
             'test': true,
           });
           _addResult('✅ Write operation successful');
-          
+
           // Clean up
           await testRef.delete();
           _addResult('✅ Cleanup successful');
@@ -263,17 +283,18 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
       _addResult('\n📋 Summary:');
       final errors = _diagnosticResults.where((r) => r.contains('❌')).length;
       final warnings = _diagnosticResults.where((r) => r.contains('⚠️')).length;
-      
+
       if (errors > 0) {
         _addResult('❌ Found $errors error(s) - these need to be fixed');
       }
       if (warnings > 0) {
-        _addResult('⚠️ Found $warnings warning(s) - check these for potential issues');
+        _addResult(
+          '⚠️ Found $warnings warning(s) - check these for potential issues',
+        );
       }
       if (errors == 0 && warnings == 0) {
         _addResult('✅ No issues found - Firestore should be working correctly');
       }
-
     } catch (e) {
       _addResult('❌ Fatal diagnostic error: $e');
       _addResult('   Stack trace: ${StackTrace.current}');
@@ -286,22 +307,27 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
 
   void _analyzeFirestoreError(dynamic error) {
     final errorString = error.toString().toLowerCase();
-    
+
     _addResult('\n🔍 Analyzing 400 Error:');
-    
-    if (errorString.contains('invalid api key') || errorString.contains('api key')) {
+
+    if (errorString.contains('invalid api key') ||
+        errorString.contains('api key')) {
       _addResult('   Likely cause: Invalid or missing API key');
       _addResult('   Solution: Check your Firebase configuration');
-    } else if (errorString.contains('project not found') || errorString.contains('project')) {
+    } else if (errorString.contains('project not found') ||
+        errorString.contains('project')) {
       _addResult('   Likely cause: Project ID mismatch');
       _addResult('   Solution: Verify your Firebase project ID');
-    } else if (errorString.contains('permission') || errorString.contains('unauthorized')) {
+    } else if (errorString.contains('permission') ||
+        errorString.contains('unauthorized')) {
       _addResult('   Likely cause: Firestore security rules');
       _addResult('   Solution: Update security rules or authenticate user');
-    } else if (errorString.contains('quota') || errorString.contains('billing')) {
+    } else if (errorString.contains('quota') ||
+        errorString.contains('billing')) {
       _addResult('   Likely cause: Billing or quota issues');
       _addResult('   Solution: Check Firebase console for billing status');
-    } else if (errorString.contains('network') || errorString.contains('connection')) {
+    } else if (errorString.contains('network') ||
+        errorString.contains('connection')) {
       _addResult('   Likely cause: Network connectivity issues');
       _addResult('   Solution: Check internet connection and firewall');
     } else {
@@ -314,7 +340,7 @@ class _FirestoreErrorDiagnosticState extends State<FirestoreErrorDiagnostic> {
     setState(() {
       _diagnosticResults.add(result);
     });
-    
+
     // Auto-scroll to bottom
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // If we had a scroll controller, we would scroll here
@@ -331,10 +357,7 @@ class FirestoreDiagnosticApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Firestore Diagnostic',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
       home: const FirestoreErrorDiagnostic(),
       debugShowCheckedModeBanner: false,
     );

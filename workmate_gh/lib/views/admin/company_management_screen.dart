@@ -238,7 +238,7 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               color: AppTheme.backgroundLight,
               child: Text(
-                'Search results for "${_searchQuery}" - ${_companies.length} companies found',
+                'Search results for "$_searchQuery" - ${_companies.length} companies found',
                 style: const TextStyle(
                   color: AppTheme.textSecondary,
                   fontWeight: FontWeight.w500,
@@ -281,7 +281,7 @@ class _CompanyManagementScreenState extends State<CompanyManagementScreen> {
           const SizedBox(height: 16),
           Text(
             _searchQuery.isNotEmpty
-                ? 'No companies found matching "${_searchQuery}"'
+                ? 'No companies found matching "$_searchQuery"'
                 : 'No companies found',
             style: const TextStyle(
               fontSize: 18,

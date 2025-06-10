@@ -412,6 +412,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           ),
     );
   }
+
   void _showTeamAttendance() {
     Navigator.of(context).push(
       MaterialPageRoute(

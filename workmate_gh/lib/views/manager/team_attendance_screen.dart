@@ -20,6 +20,8 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
   List<AppUser> _workers = [];
   Map<String, bool> _workerClockStatus = {};
   Map<String, TimeEntry?> _latestEntries = {};
+  Map<String, bool> _workerBreakStatus = {};
+  Map<String, Duration> _dailyBreakTime = {};
   bool _isLoading = true;
   
   DateTime _selectedDate = DateTime.now();
@@ -29,7 +31,6 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
     super.initState();
     _loadAttendanceData();
   }
-
   Future<void> _loadAttendanceData() async {
     setState(() => _isLoading = true);
     
@@ -39,6 +40,8 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
       
       final workerClockStatus = <String, bool>{};
       final latestEntries = <String, TimeEntry?>{};
+      final workerBreakStatus = <String, bool>{};
+      final dailyBreakTime = <String, Duration>{};
       
       // Get attendance status for each worker
       for (final worker in workers) {
@@ -55,20 +58,42 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
         // Check if currently clocked in by looking at the latest entry
         bool isClockedIn = false;
         TimeEntry? latestEntry;
+        bool isOnBreak = false;
+        Duration totalBreakTime = Duration.zero;
         
         if (entries.isNotEmpty) {
           latestEntry = entries.first; // Latest entry (list is ordered by timestamp desc)
           isClockedIn = latestEntry.type == TimeEntryType.clockIn;
+          
+          // Check if on break (only if clocked in)
+          if (isClockedIn) {
+            final currentBreak = await _timeTrackingService.getCurrentBreak(latestEntry.id);
+            isOnBreak = currentBreak != null;
+          }
+          
+          // Calculate total break time for the day
+          for (final entry in entries) {
+            if (entry.type == TimeEntryType.clockIn) {
+              final breaks = await _timeTrackingService.getBreaksForTimeEntry(entry.id);
+              for (final breakRecord in breaks) {
+                totalBreakTime += breakRecord.duration;
+              }
+            }
+          }
         }
         
         workerClockStatus[worker.uid] = isClockedIn;
         latestEntries[worker.uid] = latestEntry;
+        workerBreakStatus[worker.uid] = isOnBreak;
+        dailyBreakTime[worker.uid] = totalBreakTime;
       }
       
       setState(() {
         _workers = workers;
         _workerClockStatus = workerClockStatus;
         _latestEntries = latestEntries;
+        _workerBreakStatus = workerBreakStatus;
+        _dailyBreakTime = dailyBreakTime;
         _isLoading = false;
       });
     } catch (e) {
@@ -204,12 +229,11 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                   ),
                   
                   const SizedBox(height: 24),
-                  
-                  // Attendance Summary
+                    // Attendance Summary
                   GridView.count(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 3,
+                    crossAxisCount: 4,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                     childAspectRatio: 1.2,
@@ -225,6 +249,12 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                         '${_getPresentCount()}',
                         Icons.check_circle,
                         AppTheme.successGreen,
+                      ),
+                      _buildSummaryCard(
+                        'On Break',
+                        '${_getOnBreakCount()}',
+                        Icons.pause_circle,
+                        Colors.orange.shade500,
                       ),
                       _buildSummaryCard(
                         'Absent',
@@ -290,11 +320,12 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: _workers.length,
-                            separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderLight),
-                            itemBuilder: (context, index) {
+                            separatorBuilder: (context, index) => const Divider(height: 1, color: AppTheme.borderLight),                            itemBuilder: (context, index) {
                               final worker = _workers[index];
                               final isClockedIn = _workerClockStatus[worker.uid] ?? false;
                               final latestEntry = _latestEntries[worker.uid];
+                              final isOnBreak = _workerBreakStatus[worker.uid] ?? false;
+                              final breakTime = _dailyBreakTime[worker.uid] ?? Duration.zero;
                               
                               return ListTile(
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -310,12 +341,42 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                                     size: 20,
                                   ),
                                 ),
-                                title: Text(
-                                  worker.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
-                                  ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        worker.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isOnBreak)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.shade100,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.orange.shade300),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.pause, color: Colors.orange.shade700, size: 12),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Break',
+                                              style: TextStyle(
+                                                color: Colors.orange.shade700,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,6 +391,11 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                                     else
                                       Text(
                                         'No activity today',
+                                        style: const TextStyle(fontSize: 12, color: AppTheme.textLight),
+                                      ),
+                                    if (breakTime.inMinutes > 0)
+                                      Text(
+                                        'Break time: ${_formatDuration(breakTime)}',
                                         style: const TextStyle(fontSize: 12, color: AppTheme.textLight),
                                       ),
                                   ],
@@ -351,8 +417,7 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
                                       color: isClockedIn ? AppTheme.successGreen : Colors.red.shade600,
                                     ),
                                   ),
-                                ),
-                                onTap: () => _showWorkerDetails(worker),
+                                ),                                onTap: () => _showWorkerDetails(worker),
                               );
                             },
                           ),
@@ -532,13 +597,20 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
       ),
     );
   }
-
   int _getPresentCount() {
     return _workerClockStatus.values.where((status) => status).length;
   }
 
+  int _getOnBreakCount() {
+    return _workerBreakStatus.values.where((status) => status).length;
+  }
+
   int _getAbsentCount() {
     return _workers.length - _getPresentCount();
+  }
+
+  int _getOnBreakCount() {
+    return _workerBreakStatus.values.where((status) => status).length;
   }
 
   bool _isToday(DateTime date) {
@@ -552,8 +624,18 @@ class _TeamAttendanceScreenState extends State<TeamAttendanceScreen> {
     
     return '${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
   }
-
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else {
+      return '${minutes}m';
+    }
   }
 }

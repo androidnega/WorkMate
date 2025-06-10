@@ -3,6 +3,7 @@ import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/time_tracking_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
 import 'package:workmate_gh/core/theme/app_theme.dart';
+import 'package:workmate_gh/widgets/break_button.dart';
 
 class WorkerDashboard extends StatefulWidget {
   final AppUser user;
@@ -18,6 +19,9 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
   bool _isClockedIn = false;
   DateTime? _lastClockTime;
   bool _isLoading = false;
+  bool _isOnBreak = false;
+  String? _currentTimeEntryId;
+  String? _currentBreakId;
 
   @override
   void initState() {
@@ -30,9 +34,25 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
       final isClockedIn = await _timeTrackingService.isCurrentlyClockedIn();
       final latestEntry = await _timeTrackingService.getLatestTimeEntry();
 
+      bool isOnBreak = false;
+      String? currentBreakId;
+
+      if (isClockedIn && latestEntry != null) {
+        isOnBreak = await _timeTrackingService.isCurrentlyOnBreak();
+        if (isOnBreak) {
+          final currentBreak = await _timeTrackingService.getCurrentBreak(
+            latestEntry.id,
+          );
+          currentBreakId = currentBreak?.id;
+        }
+      }
+
       setState(() {
         _isClockedIn = isClockedIn;
         _lastClockTime = latestEntry?.timestamp;
+        _isOnBreak = isOnBreak;
+        _currentTimeEntryId = latestEntry?.id;
+        _currentBreakId = currentBreakId;
       });
     } catch (e) {
       // Log error - consider using a proper logging framework in production
@@ -96,7 +116,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                           ],
                         ),
                       ),
-                      Container(
+                      SizedBox(
                         height: 40,
                         child: ElevatedButton.icon(
                           onPressed: _logout,
@@ -182,6 +202,41 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                           ),
                         ),
                       const SizedBox(height: 24),
+
+                      // Status indicator for break
+                      if (_isOnBreak)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.pause,
+                                color: Colors.orange.shade700,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Currently on break',
+                                style: TextStyle(
+                                  color: Colors.orange.shade700,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (_isOnBreak) const SizedBox(height: 16),
+
+                      // Clock In/Out Button
                       SizedBox(
                         width: double.infinity,
                         height: 56,
@@ -225,6 +280,17 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                             disabledBackgroundColor: AppTheme.textLight,
                           ),
                         ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Break Button
+                      BreakButton(
+                        isOnBreak: _isOnBreak,
+                        isClockedIn: _isClockedIn,
+                        currentTimeEntryId: _currentTimeEntryId,
+                        currentBreakId: _currentBreakId,
+                        onBreakStateChanged: _loadCurrentStatus,
                       ),
                     ],
                   ),
@@ -333,11 +399,6 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     try {
       if (_isClockedIn) {
         await _timeTrackingService.clockOut();
-        setState(() {
-          _isClockedIn = false;
-          _lastClockTime = DateTime.now();
-        });
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -348,11 +409,6 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         }
       } else {
         await _timeTrackingService.clockIn();
-        setState(() {
-          _isClockedIn = true;
-          _lastClockTime = DateTime.now();
-        });
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -362,12 +418,32 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
           );
         }
       }
+
+      // Refresh status after clock operation
+      await _loadCurrentStatus();
     } catch (e) {
       if (mounted) {
+        String errorMessage = e.toString();
+        Color backgroundColor = Colors.red;
+
+        // Handle location-related errors with warning color
+        if (errorMessage.contains('Location unavailable') ||
+            errorMessage.contains('within') ||
+            errorMessage.contains('location')) {
+          backgroundColor = Colors.orange;
+
+          // Show location warning dialog for location issues
+          if (errorMessage.contains('within')) {
+            _showLocationWarningDialog(errorMessage);
+            return;
+          }
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            content: Text('Error: $errorMessage'),
+            backgroundColor: backgroundColor,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -378,6 +454,46 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         });
       }
     }
+  }
+
+  void _showLocationWarningDialog(String message) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.location_off, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Location Warning'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message),
+                const SizedBox(height: 16),
+                const Text(
+                  'Please ensure you are at your workplace location to clock in.',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _toggleClock(); // Retry clock in
+                },
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
+    );
   }
 
   String _formatTime(DateTime time) {

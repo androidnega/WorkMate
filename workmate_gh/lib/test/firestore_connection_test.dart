@@ -41,7 +41,7 @@ class FirestoreConnectionTest {
         final testCollection = firestore.collection('_test');
         final query = testCollection.limit(1);
         debugPrint('   Query created successfully');
-        
+
         final snapshot = await query.get();
         debugPrint('✅ Firestore read successful!');
         debugPrint('   Documents returned: ${snapshot.docs.length}');
@@ -70,7 +70,9 @@ class FirestoreConnectionTest {
         final companiesRef = firestore.collection('companies');
         final companiesSnapshot = await companiesRef.limit(1).get();
         debugPrint('✅ Companies collection accessible');
-        debugPrint('   Documents in companies: ${companiesSnapshot.docs.length}');
+        debugPrint(
+          '   Documents in companies: ${companiesSnapshot.docs.length}',
+        );
       } catch (e) {
         debugPrint('❌ Companies collection access failed: $e');
       }
@@ -88,7 +90,6 @@ class FirestoreConnectionTest {
       }
 
       debugPrint('\n🎉 Diagnostic complete!');
-
     } catch (e) {
       debugPrint('❌ Fatal error during diagnostic: $e');
       debugPrint('   Error type: ${e.runtimeType}');
@@ -99,19 +100,20 @@ class FirestoreConnectionTest {
   /// Test with authentication
   static Future<void> testWithAuth() async {
     debugPrint('\n🔐 Testing with authentication...');
-    
+
     try {
       final auth = FirebaseAuth.instance;
-      
+
       // Try to get current user
       final currentUser = auth.currentUser;
       if (currentUser != null) {
         debugPrint('✅ User is authenticated: ${currentUser.email}');
-        
+
         // Test user-specific Firestore operations
         final firestore = FirebaseFirestore.instance;
-        final userDoc = await firestore.collection('users').doc(currentUser.uid).get();
-        
+        final userDoc =
+            await firestore.collection('users').doc(currentUser.uid).get();
+
         if (userDoc.exists) {
           debugPrint('✅ User document exists in Firestore');
           debugPrint('   User data: ${userDoc.data()}');
@@ -129,38 +131,39 @@ class FirestoreConnectionTest {
   /// Test network connectivity
   static Future<void> testNetworkConnectivity() async {
     debugPrint('\n🌐 Testing network connectivity...');
-    
+
     try {
       // Enable network (in case it was disabled)
       await FirebaseFirestore.instance.enableNetwork();
       debugPrint('✅ Network enabled for Firestore');
-      
+
       // Test a simple ping-like operation
       final firestore = FirebaseFirestore.instance;
       final testRef = firestore.collection('_connection_test').doc('ping');
-      
+
       // Try to write a test document
       await testRef.set({
         'timestamp': DateTime.now().toIso8601String(),
         'test': true,
       });
       debugPrint('✅ Test write successful');
-      
+
       // Try to read it back
       final doc = await testRef.get();
       if (doc.exists) {
         debugPrint('✅ Test read successful');
       }
-      
+
       // Clean up
       await testRef.delete();
       debugPrint('✅ Test cleanup successful');
-      
     } catch (e) {
       debugPrint('❌ Network connectivity test failed: $e');
-      
+
       if (e.toString().contains('PERMISSION_DENIED')) {
-        debugPrint('   This suggests Firestore security rules may be blocking access');
+        debugPrint(
+          '   This suggests Firestore security rules may be blocking access',
+        );
       } else if (e.toString().contains('400')) {
         debugPrint('   This is the 400 error - likely a configuration issue');
       }

@@ -189,14 +189,16 @@ class CompanyService {
       }
 
       final querySnapshot = await query.get();
-      
-      final companies = querySnapshot.docs.map((doc) {
-        return Company.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
+
+      final companies =
+          querySnapshot.docs.map((doc) {
+            return Company.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+          }).toList();
 
       return {
         'companies': companies,
-        'lastDocument': querySnapshot.docs.isNotEmpty ? querySnapshot.docs.last : null,
+        'lastDocument':
+            querySnapshot.docs.isNotEmpty ? querySnapshot.docs.last : null,
         'hasMore': querySnapshot.docs.length == limit,
       };
     } catch (e) {
@@ -208,26 +210,28 @@ class CompanyService {
   Future<List<Company>> searchCompanies(String searchQuery) async {
     try {
       final searchLower = searchQuery.toLowerCase();
-      
+
       // Search by name
-      final nameQuery = await _db
-          .collection('companies')
-          .where('isActive', isEqualTo: true)
-          .where('name', isGreaterThanOrEqualTo: searchLower)
-          .where('name', isLessThanOrEqualTo: '$searchLower\uf8ff')
-          .orderBy('name')
-          .limit(20)
-          .get();
+      final nameQuery =
+          await _db
+              .collection('companies')
+              .where('isActive', isEqualTo: true)
+              .where('name', isGreaterThanOrEqualTo: searchLower)
+              .where('name', isLessThanOrEqualTo: '$searchLower\uf8ff')
+              .orderBy('name')
+              .limit(20)
+              .get();
 
       // Search by location
-      final locationQuery = await _db
-          .collection('companies')
-          .where('isActive', isEqualTo: true)
-          .where('location', isGreaterThanOrEqualTo: searchLower)
-          .where('location', isLessThanOrEqualTo: '$searchLower\uf8ff')
-          .orderBy('location')
-          .limit(20)
-          .get();
+      final locationQuery =
+          await _db
+              .collection('companies')
+              .where('isActive', isEqualTo: true)
+              .where('location', isGreaterThanOrEqualTo: searchLower)
+              .where('location', isLessThanOrEqualTo: '$searchLower\uf8ff')
+              .orderBy('location')
+              .limit(20)
+              .get();
 
       final Set<String> addedIds = {};
       final List<Company> results = [];
@@ -250,7 +254,7 @@ class CompanyService {
 
       // Sort by name
       results.sort((a, b) => a.name.compareTo(b.name));
-      
+
       return results;
     } catch (e) {
       throw Exception('Failed to search companies: $e');
@@ -258,7 +262,10 @@ class CompanyService {
   }
 
   // Assign manager to company
-  Future<void> assignManagerToCompany(String companyId, String managerId) async {
+  Future<void> assignManagerToCompany(
+    String companyId,
+    String managerId,
+  ) async {
     try {
       await _db.collection('companies').doc(companyId).update({
         'managerId': managerId,
@@ -296,15 +303,17 @@ class CompanyService {
   // Get available managers (not assigned to any company)
   Future<List<AppUser>> getAvailableManagers() async {
     try {
-      final querySnapshot = await _db
-          .collection('users')
-          .where('role', isEqualTo: 'manager')
-          .where('isActive', isEqualTo: true)
-          .get();
+      final querySnapshot =
+          await _db
+              .collection('users')
+              .where('role', isEqualTo: 'manager')
+              .where('isActive', isEqualTo: true)
+              .get();
 
-      final allManagers = querySnapshot.docs.map((doc) {
-        return AppUser.fromMap(doc.data(), doc.id);
-      }).toList();
+      final allManagers =
+          querySnapshot.docs.map((doc) {
+            return AppUser.fromMap(doc.data(), doc.id);
+          }).toList();
 
       // Filter out managers already assigned to companies
       final availableManagers = <AppUser>[];

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:workmate_gh/services/auth_service.dart';
+import 'package:workmate_gh/views/auth/password_reset_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,21 +15,70 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
+  String _debugInfo = '';
+  Future<void> _createTestUser() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _debugInfo = 'Creating test user...';
+      });
+    }
+
+    try {
+      // Create a test admin user
+      final user = await _authService.registerAdminUser(
+        'admin@workmate-gh.com',
+        'AdminPass123!',
+        'Test Administrator',
+      );
+
+      if (mounted) {
+        setState(() {
+          _debugInfo = 'Test user created successfully: ${user?.email}';
+          _emailController.text = 'admin@workmate-gh.com';
+          _passwordController.text = 'AdminPass123!';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _debugInfo = 'Failed to create test user: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   Future<void> _login() async {
     if (_formKey.currentState?.validate() ?? false) {
-      setState(() {
-        _isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _debugInfo = 'Attempting login...';
+        });
+      }
 
       try {
         await _authService.loginWithEmail(
           _emailController.text.trim(),
           _passwordController.text,
         );
+        if (mounted) {
+          setState(() {
+            _debugInfo = 'Login successful!';
+          });
+        }
         // Navigation will be handled by AuthWrapper
       } catch (e) {
         if (mounted) {
+          setState(() {
+            _debugInfo = 'Login failed: ${e.toString()}';
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Login failed: ${e.toString()}'),
@@ -246,14 +296,77 @@ class _LoginScreenState extends State<LoginScreen> {
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                         ),
-                                      ),
-                            ),
+                                      ),                            ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),                    // Password Reset Link
+                    Center(
+                      child: TextButton(
+                        onPressed: _isLoading ? null : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PasswordResetScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            color: Color(0xFF10B981),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Debug Info
+                    if (_debugInfo.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Text(
+                          _debugInfo,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+
+                    // Test User Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: _isLoading ? null : _createTestUser,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF10B981)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Create Test Admin User',
+                          style: TextStyle(
+                            color: Color(0xFF10B981),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
 
                     // Help Text
                     Container(
@@ -279,7 +392,27 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Contact your administrator for account creation',
                               style: const TextStyle(
                                 color: Color(0xFF1F2937),
-                                fontSize: 14,
+                                fontSize: 14,                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Forgot Password Link
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PasswordResetScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Color(0xFF10B981),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
