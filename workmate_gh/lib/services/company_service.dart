@@ -1,11 +1,102 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
+import 'dart:math' show sin, cos, sqrt, atan2, pi;
 import '../models/company.dart';
 import '../models/app_user.dart';
 
 class CompanyService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Create new company
+  Future<Company> createCompany({
+    required String name,
+    required String address,
+    required String adminId,
+    String? phone,
+    String? email,
+    String? logoUrl,
+    Map<String, String>? workSchedule,
+  }) async {
+    final timestamp = DateTime.now();
+    final coordinates = await getCoordinatesFromAddress(address);
+    
+    final doc = await _db.collection('companies').add({
+      'name': name,
+      'address': address,
+      'adminId': adminId,
+      'phone': phone,
+      'email': email,
+      'coordinates': coordinates,
+      'locationRadius': 500.0, // Default 500m radius
+      'logoUrl': logoUrl,
+      'workSchedule': workSchedule ?? {
+        'monday': '08:30-17:30',
+        'tuesday': '08:30-17:30',
+        'wednesday': '08:30-17:30',
+        'thursday': '08:30-17:30',
+        'friday': '08:30-17:30',
+      },
+      'createdAt': timestamp,
+      'updatedAt': timestamp,
+      'isActive': true,
+    });
+
+    return Company(
+      id: doc.id,
+      name: name,
+      address: address,
+      adminId: adminId,
+      phone: phone,
+      email: email,
+      coordinates: coordinates,
+      logoUrl: logoUrl,
+      workSchedule: workSchedule,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    );
+  }
+
+  // Convert address to coordinates
+  Future<Map<String, double>?> getCoordinatesFromAddress(String address) async {
+    try {
+      List<geocoding.Location> locations = await geocoding.locationFromAddress(address);
+      if (locations.isNotEmpty) {
+        return {
+          'latitude': locations.first.latitude,
+          'longitude': locations.first.longitude,
+        };
+      }
+    } catch (e) {
+      print('Error geocoding address: $e');
+    }
+    return null;
+  }
+
+  // Calculate distance between two points using Haversine formula
+  double calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const double earthRadius = 6371000; // Earth's radius in meters
+    
+    // Convert to radians
+    final phi1 = lat1 * pi / 180;
+    final phi2 = lat2 * pi / 180;
+    final deltaPhi = (lat2 - lat1) * pi / 180;
+    final deltaLambda = (lon2 - lon1) * pi / 180;
+
+    final a = sin(deltaPhi/2) * sin(deltaPhi/2) +
+              cos(phi1) * cos(phi2) *
+              sin(deltaLambda/2) * sin(deltaLambda/2);
+    
+    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    return earthRadius * c; // Distance in meters
+  }
+
   // Create a new company (Admin only)
   Future<Company> createCompany({
     required String name,
@@ -18,6 +109,29 @@ class CompanyService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('User not authenticated');
 
+    // Validate company name is unique
+    final existingCompanies =
+        await _db
+            .collection('companies')
+            .where('name', isEqualTo: name)
+            .where('isActive', isEqualTo: true)
+            .get();
+
+    if (existingCompanies.docs.isNotEmpty) {
+      throw Exception('A company with this name already exists');
+    }
+
+    // Get coordinates from address for geofencing
+    List<Location> locations = await locationFromAddress('$address, $location');
+    if (locations.isEmpty) {
+      throw Exception('Invalid address or location');
+    }
+
+    final coordinates = {
+      'lat': locations.first.latitude,
+      'lng': locations.first.longitude,
+    };
+
     final company = Company(
       id: '', // Will be set by Firestore
       name: name,
@@ -28,6 +142,8 @@ class CompanyService {
       managerId: managerId,
       createdAt: DateTime.now(),
       adminId: user.uid,
+      coordinates: coordinates,
+      locationRadius: 500.0, // Default 500 meter radius for geofencing
     );
 
     try {
@@ -341,5 +457,86 @@ class CompanyService {
     } catch (e) {
       throw Exception('Failed to get manager: $e');
     }
+  }
+
+  // Get company location details
+  Future<Map<String, dynamic>> getCompanyLocation(String companyId) async {
+    try {
+      final company = await getCompanyById(companyId);
+      if (company == null || company.coordinates == null) {
+        throw Exception('Company location not found');
+      }
+
+      return {
+        'coordinates': company.coordinates,
+        'radius': company.locationRadius,
+        'address': company.address,
+        'location': company.location,
+      };
+    } catch (e) {
+      throw Exception('Failed to get company location: $e');
+    }
+  }
+
+  // Update company geofence radius
+  Future<void> updateCompanyGeofence(String companyId, double radius) async {
+    try {
+      await _db.collection('companies').doc(companyId).update({
+        'locationRadius': radius,
+      });
+    } catch (e) {
+      throw Exception('Failed to update company geofence: $e');
+    }
+  }
+
+  // Verify if coordinates are within company's geofence
+  Future<bool> verifyLocationForCompany(
+    String companyId,
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      final company = await getCompanyById(companyId);
+      if (company == null || company.coordinates == null) {
+        return false;
+      }
+
+      // Calculate distance between points
+      final companyLat = company.coordinates!['lat']!;
+      final companyLng = company.coordinates!['lng']!;
+
+      final distance = _calculateDistance(
+        companyLat,
+        companyLng,
+        latitude,
+        longitude,
+      );
+
+      // Check if within radius (convert to meters)
+      return distance <= (company.locationRadius ?? 500.0);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Calculate distance between two points using Haversine formula
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371000; // Earth's radius in meters
+    final phi1 = lat1 * pi / 180;
+    final phi2 = lat2 * pi / 180;
+    final deltaPhi = (lat2 - lat1) * pi / 180;
+    final deltaLambda = (lon2 - lon1) * pi / 180;
+
+    final a =
+        sin(deltaPhi / 2) * sin(deltaPhi / 2) +
+        cos(phi1) * cos(phi2) * sin(deltaLambda / 2) * sin(deltaLambda / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return R * c; // Distance in meters
   }
 }

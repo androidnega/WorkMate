@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/app_user.dart';
 import '../models/company.dart';
+import '../models/attendance_summary.dart';
 
 enum TimeEntryType { clockIn, clockOut, breakStart, breakEnd }
 
@@ -25,7 +26,10 @@ class BreakRecord {
     return BreakRecord(
       id: json['id'] as String,
       startTime: DateTime.parse(json['startTime'] as String),
-      endTime: json['endTime'] != null ? DateTime.parse(json['endTime'] as String) : null,
+      endTime:
+          json['endTime'] != null
+              ? DateTime.parse(json['endTime'] as String)
+              : null,
       isPaidBreak: json['isPaidBreak'] as bool? ?? false,
       notes: json['notes'] as String?,
     );
@@ -97,7 +101,10 @@ class TimeEntry {
           json['location'] != null
               ? Map<String, double>.from(json['location'])
               : null,
-      breaks: breaksList.map((b) => BreakRecord.fromJson(b as Map<String, dynamic>)).toList(),
+      breaks:
+          breaksList
+              .map((b) => BreakRecord.fromJson(b as Map<String, dynamic>))
+              .toList(),
     );
   }
 
@@ -145,25 +152,36 @@ class TimeEntry {
 
   /// Calculate paid break duration for this time entry
   Duration get paidBreakDuration {
-    return breaks.where((b) => b.isPaidBreak).fold(Duration.zero, (total, breakRecord) {
+    return breaks.where((b) => b.isPaidBreak).fold(Duration.zero, (
+      total,
+      breakRecord,
+    ) {
       return total + breakRecord.duration;
     });
   }
 
   /// Calculate unpaid break duration for this time entry
   Duration get unpaidBreakDuration {
-    return breaks.where((b) => !b.isPaidBreak).fold(Duration.zero, (total, breakRecord) {
+    return breaks.where((b) => !b.isPaidBreak).fold(Duration.zero, (
+      total,
+      breakRecord,
+    ) {
       return total + breakRecord.duration;
     });
   }
 }
 
 class TimeTrackingService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Standard work hours (configurable per company in the future)
+  static const workStartHour = 8; // 8 AM
+  static const workStartMinute = 30; // 8:30 AM
+  static const lateThresholdMinutes = 15; // 15 minutes grace period
+
   // Location validation methods
-  
+
   // Validate current location and get position
   Future<Map<String, dynamic>> _validateLocation() async {
     try {
@@ -191,7 +209,8 @@ class TimeTrackingService {
       if (permission == LocationPermission.deniedForever) {
         return {
           'success': false,
-          'error': 'Location permissions are permanently denied. Please enable in settings.',
+          'error':
+              'Location permissions are permanently denied. Please enable in settings.',
         };
       }
 
@@ -202,10 +221,12 @@ class TimeTrackingService {
       );
 
       // Check accuracy threshold
-      if (position.accuracy > 100) { // 100 meters accuracy threshold
+      if (position.accuracy > 100) {
+        // 100 meters accuracy threshold
         return {
           'success': false,
-          'error': 'Location accuracy is too low (${position.accuracy.toInt()}m). Please try again.',
+          'error':
+              'Location accuracy is too low (${position.accuracy.toInt()}m). Please try again.',
         };
       }
 
@@ -226,7 +247,10 @@ class TimeTrackingService {
   }
 
   // Check if user is within company location radius
-  Future<bool> _isWithinCompanyLocation(Position userPosition, Company company) async {
+  Future<bool> _isWithinCompanyLocation(
+    Position userPosition,
+    Company company,
+  ) async {
     if (company.coordinates == null) {
       // If company has no location set, allow clock-in from anywhere
       return true;
@@ -253,7 +277,7 @@ class TimeTrackingService {
 
     try {
       final querySnapshot =
-          await _firestore
+          await _db
               .collection('time_entries')
               .where('userId', isEqualTo: user.uid)
               .orderBy('timestamp', descending: true)
@@ -279,397 +303,325 @@ class TimeTrackingService {
     final latestEntry = await getLatestTimeEntry();
     return latestEntry?.type == TimeEntryType.clockIn;
   }
+
   // Clock in with location validation
-  Future<TimeEntry> clockIn({String? notes}) async {
+  Future<void> clockIn(Map<String, double> location) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('User not authenticated');
+    if (user == null) throw Exception('No authenticated user found');
 
-    // Get user's company info
-    final userDoc = await _firestore.collection('users').doc(user.uid).get();
-    final appUser = AppUser.fromMap(userDoc.data()!, user.uid);
+    // Get user's company ID
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    if (!userDoc.exists) throw Exception('User document not found');
+    final companyId = userDoc.data()?['companyId'];
 
-    // Get company info for location validation
-    final companyDoc = await _firestore.collection('companies').doc(appUser.companyId).get();
-    if (!companyDoc.exists) throw Exception('Company not found');
-    final company = Company.fromMap(companyDoc.data()!, companyDoc.id);
+    // Check for existing clock-in today
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final existing =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where(
+              'timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where('type', isEqualTo: 'clockIn')
+            .get();
 
-    // Check if already clocked in
-    if (await isCurrentlyClockedIn()) {
-      throw Exception('Already clocked in');
+    if (existing.docs.isNotEmpty) {
+      throw Exception('Already clocked in today');
     }
 
-    // Validate location
-    final locationResult = await _validateLocation();
-    if (!locationResult['success']) {
-      throw Exception('Location unavailable: ${locationResult['error']}');
-    }
-
-    final position = locationResult['position'] as Position;
-    final coordinates = locationResult['coordinates'] as Map<String, double>;
-
-    // Check if within company location
-    if (!await _isWithinCompanyLocation(position, company)) {
-      final radius = company.locationRadius ?? 500.0;
-      throw Exception('You must be within ${radius.toInt()}m of the company location to clock in');
-    }
-
-    final timeEntry = TimeEntry(
-      id: '', // Will be set by Firestore
-      userId: user.uid,
-      companyId: appUser.companyId,
-      timestamp: DateTime.now(),
-      type: TimeEntryType.clockIn,
-      notes: notes,
-      location: coordinates,
+    // Calculate if late
+    final expectedStart = DateTime(
+      today.year,
+      today.month,
+      today.day,
+      workStartHour,
+      workStartMinute,
     );
+    final isLate =
+        today.difference(expectedStart).inMinutes > lateThresholdMinutes;
 
-    try {
-      final docRef = await _firestore
-          .collection('time_entries')
-          .add(timeEntry.toJson());
-
-      return timeEntry.copyWith(id: docRef.id);
-    } catch (e) {
-      throw Exception('Failed to clock in: $e');
-    }
+    // Create clock-in record
+    await _db.collection('time_entries').add({
+      'userId': user.uid,
+      'companyId': companyId,
+      'type': 'clockIn',
+      'timestamp': FieldValue.serverTimestamp(),
+      'location': location,
+      'isLate': isLate,
+    });
   }
 
   // Clock out
-  Future<TimeEntry> clockOut({String? notes}) async {
+  Future<void> clockOut(Map<String, double> location) async {
     final user = _auth.currentUser;
-    if (user == null) throw Exception('User not authenticated');
+    if (user == null) throw Exception('No authenticated user found');
 
-    // Get user's company info
-    final userDoc = await _firestore.collection('users').doc(user.uid).get();
-    final appUser = AppUser.fromMap(userDoc.data()!, user.uid);
+    // Get user's company ID
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    if (!userDoc.exists) throw Exception('User document not found');
+    final companyId = userDoc.data()?['companyId'];
 
-    // Check if currently clocked in
-    if (!await isCurrentlyClockedIn()) {
-      throw Exception('Not currently clocked in');
+    // Check for existing clock-in today
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final clockIn =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where(
+              'timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where('type', isEqualTo: 'clockIn')
+            .get();
+
+    if (clockIn.docs.isEmpty) {
+      throw Exception('No clock-in record found for today');
     }
 
-    final timeEntry = TimeEntry(
-      id: '', // Will be set by Firestore
-      userId: user.uid,
-      companyId: appUser.companyId,
-      timestamp: DateTime.now(),
-      type: TimeEntryType.clockOut,
-      notes: notes,
-    );
-
-    try {
-      final docRef = await _firestore
-          .collection('time_entries')
-          .add(timeEntry.toJson());
-
-      return timeEntry.copyWith(id: docRef.id);
-    } catch (e) {
-      throw Exception('Failed to clock out: $e');
-    }
+    // Create clock-out record
+    await _db.collection('time_entries').add({
+      'userId': user.uid,
+      'companyId': companyId,
+      'type': 'clockOut',
+      'timestamp': FieldValue.serverTimestamp(),
+      'location': location,
+    });
   }
 
-  // Get time entries for a specific date range
+  // Start break
+  Future<void> startBreak() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No authenticated user found');
+
+    // Get user's company ID
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    if (!userDoc.exists) throw Exception('User document not found');
+    final companyId = userDoc.data()?['companyId'];
+
+    // Check for existing active break
+    final activeBreak =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where('type', isEqualTo: 'break')
+            .where('endTime', isNull: true)
+            .get();
+
+    if (activeBreak.docs.isNotEmpty) {
+      throw Exception('Already on break');
+    }
+
+    // Create break record
+    await _db.collection('time_entries').add({
+      'userId': user.uid,
+      'companyId': companyId,
+      'type': 'break',
+      'startTime': FieldValue.serverTimestamp(),
+      'endTime': null,
+      'duration': null,
+    });
+  }
+
+  // End break
+  Future<void> endBreak() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No authenticated user found');
+
+    // Find active break
+    final activeBreak =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where('type', isEqualTo: 'break')
+            .where('endTime', isNull: true)
+            .get();
+
+    if (activeBreak.docs.isEmpty) {
+      throw Exception('No active break found');
+    }
+
+    final breakDoc = activeBreak.docs.first;
+    final startTime = (breakDoc.data()['startTime'] as Timestamp).toDate();
+    final endTime = DateTime.now();
+    final durationMinutes = endTime.difference(startTime).inMinutes;
+
+    // Update break record with end time and duration
+    await breakDoc.reference.update({
+      'endTime': FieldValue.serverTimestamp(),
+      'duration': durationMinutes,
+    });
+  }
+
+  // Get current user's status (clocked in/out, on break)
+  Future<Map<String, dynamic>> getCurrentStatus() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No authenticated user found');
+
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+
+    // Check clock-in status
+    final clockIn =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where(
+              'timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where('type', isEqualTo: 'clockIn')
+            .get();
+
+    final isClockedIn = clockIn.docs.isNotEmpty;
+
+    // Check clock-out status
+    final clockOut =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where(
+              'timestamp',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where('type', isEqualTo: 'clockOut')
+            .get();
+
+    final isClockedOut = clockOut.docs.isNotEmpty;
+
+    // Check break status
+    final activeBreak =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: user.uid)
+            .where('type', isEqualTo: 'break')
+            .where('endTime', isNull: true)
+            .get();
+
+    final isOnBreak = activeBreak.docs.isNotEmpty;
+
+    return {
+      'isClockedIn': isClockedIn,
+      'isClockedOut': isClockedOut,
+      'isOnBreak': isOnBreak,
+      'clockInTime':
+          isClockedIn
+              ? (clockIn.docs.first.data()['timestamp'] as Timestamp).toDate()
+              : null,
+      'isLate':
+          isClockedIn ? clockIn.docs.first.data()['isLate'] ?? false : false,
+    };
+  }
+
+  // Get time entries for a specific period
   Future<List<TimeEntry>> getTimeEntries({
-    required DateTime startDate,
-    required DateTime endDate,
-    String? userId,
-  }) async {
-    try {
-      final targetUserId = userId ?? _auth.currentUser?.uid;
-      if (targetUserId == null) throw Exception('User not authenticated');
-
-      final querySnapshot =
-          await _firestore
-              .collection('time_entries')
-              .where('userId', isEqualTo: targetUserId)
-              .where(
-                'timestamp',
-                isGreaterThanOrEqualTo: startDate.toIso8601String(),
-              )
-              .where(
-                'timestamp',
-                isLessThanOrEqualTo: endDate.toIso8601String(),
-              )
-              .orderBy('timestamp', descending: true)
-              .get();
-
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return TimeEntry.fromJson(data);
-      }).toList();
-    } catch (e) {
-      // Log error - consider using a proper logging framework in production
-      // print('Error getting time entries: $e');
-      return [];
-    }
-  }
-
-  // Calculate total hours worked for a date range
-  Future<double> getTotalHoursWorked({
-    required DateTime startDate,
-    required DateTime endDate,
-    String? userId,
-  }) async {
-    final entries = await getTimeEntries(
-      startDate: startDate,
-      endDate: endDate,
-      userId: userId,
-    );
-
-    double totalHours = 0.0;
-    TimeEntry? clockInEntry;
-
-    for (final entry in entries.reversed) {
-      if (entry.type == TimeEntryType.clockIn) {
-        clockInEntry = entry;
-      } else if (entry.type == TimeEntryType.clockOut && clockInEntry != null) {
-        final duration = entry.timestamp.difference(clockInEntry.timestamp);
-        totalHours += duration.inMinutes / 60.0;
-        clockInEntry = null;
-      }
-    }
-
-    return totalHours;
-  }
-
-  // Get time entries for a specific company (Manager/Admin use)
-  Future<List<TimeEntry>> getTimeEntriesByCompany({
-    required String companyId,
-    required DateTime startDate,
-    required DateTime endDate,
-    String? userId,
-  }) async {
-    try {
-      Query query = _firestore
-          .collection('time_entries')
-          .where('companyId', isEqualTo: companyId)
-          .where(
-            'timestamp',
-            isGreaterThanOrEqualTo: startDate.toIso8601String(),
-          )
-          .where('timestamp', isLessThanOrEqualTo: endDate.toIso8601String());
-
-      // Filter by specific user if provided
-      if (userId != null) {
-        query = query.where('userId', isEqualTo: userId);
-      }
-
-      final querySnapshot =
-          await query.orderBy('timestamp', descending: true).get();
-
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return TimeEntry.fromJson(data);
-      }).toList();
-    } catch (e) {
-      // Log error - consider using a proper logging framework in production
-      return [];
-    }
-  }
-
-  // Get total hours worked by company (Manager/Admin use)
-  Future<double> getTotalHoursWorkedByCompany({
-    required String companyId,
-    required DateTime startDate,
-    required DateTime endDate,
-    String? userId,
-  }) async {
-    final entries = await getTimeEntriesByCompany(
-      companyId: companyId,
-      startDate: startDate,
-      endDate: endDate,
-      userId: userId,
-    );
-
-    double totalHours = 0.0;
-    TimeEntry? clockInEntry;
-
-    for (final entry in entries.reversed) {
-      if (entry.type == TimeEntryType.clockIn) {
-        clockInEntry = entry;
-      } else if (entry.type == TimeEntryType.clockOut && clockInEntry != null) {
-        final duration = entry.timestamp.difference(clockInEntry.timestamp);
-        totalHours += duration.inMinutes / 60.0;
-        clockInEntry = null;
-      }
-    }
-
-    return totalHours;
-  }
-
-  // Get all users with time entries for a company (Admin/Manager use)
-  Future<Map<String, double>> getHoursByUserForCompany({
-    required String companyId,
+    required String userId,
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    final entries = await getTimeEntriesByCompany(
-      companyId: companyId,
-      startDate: startDate,
-      endDate: endDate,
-    );
+    final snapshot =
+        await _db
+            .collection('time_entries')
+            .where('userId', isEqualTo: userId)
+            .where('timestamp', isGreaterThanOrEqualTo: startDate)
+            .where('timestamp', isLessThan: endDate)
+            .orderBy('timestamp', descending: true)
+            .get();
 
-    final Map<String, double> userHours = {};
-    final Map<String, TimeEntry?> userClockIns = {};
-
-    for (final entry in entries.reversed) {
-      final userId = entry.userId;
-
-      if (entry.type == TimeEntryType.clockIn) {
-        userClockIns[userId] = entry;
-      } else if (entry.type == TimeEntryType.clockOut &&
-          userClockIns[userId] != null) {
-        final clockInEntry = userClockIns[userId]!;
-        final duration = entry.timestamp.difference(clockInEntry.timestamp);
-        userHours[userId] =
-            (userHours[userId] ?? 0) + (duration.inMinutes / 60.0);
-        userClockIns[userId] = null;
-      }
-    }
-
-    return userHours;
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return TimeEntry.fromJson(data);
+    }).toList();
   }
 
-  // Break tracking methods
-  
-  // Start a break
-  Future<BreakRecord> startBreak({
-    required String timeEntryId,
-    bool isPaidBreak = false,
-    String? notes,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('User not authenticated');
+  // Get breaks for a time entry
+  Future<List<BreakRecord>> getBreaksForTimeEntry(String timeEntryId) async {
+    final snapshot =
+        await _db
+            .collection('time_entries')
+            .doc(timeEntryId)
+            .collection('breaks')
+            .orderBy('startTime')
+            .get();
 
-    // Check if currently clocked in
-    if (!await isCurrentlyClockedIn()) {
-      throw Exception('Must be clocked in to start a break');
-    }
-
-    // Check if already on a break
-    final currentBreak = await getCurrentBreak(timeEntryId);
-    if (currentBreak != null) {
-      throw Exception('Already on a break');
-    }
-
-    final breakRecord = BreakRecord(
-      id: '', // Will be set by Firestore
-      startTime: DateTime.now(),
-      isPaidBreak: isPaidBreak,
-      notes: notes,
-    );
-
-    try {
-      // Add break to the time entry's breaks subcollection
-      final docRef = await _firestore
-          .collection('time_entries')
-          .doc(timeEntryId)
-          .collection('breaks')
-          .add(breakRecord.toJson());
-
-      return breakRecord.copyWith(id: docRef.id);
-    } catch (e) {
-      throw Exception('Failed to start break: $e');
-    }
-  }
-
-  // End a break
-  Future<BreakRecord> endBreak({
-    required String timeEntryId,
-    required String breakId,
-    String? notes,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('User not authenticated');
-
-    try {
-      // Get the current break
-      final breakDoc = await _firestore
-          .collection('time_entries')
-          .doc(timeEntryId)
-          .collection('breaks')
-          .doc(breakId)
-          .get();
-
-      if (!breakDoc.exists) {
-        throw Exception('Break record not found');
-      }
-
-      final breakData = breakDoc.data()!;
-      breakData['id'] = breakDoc.id;
-      final currentBreak = BreakRecord.fromJson(breakData);
-
-      if (currentBreak.endTime != null) {
-        throw Exception('Break already ended');
-      }
-
-      // Update break with end time
-      final updatedBreak = currentBreak.copyWith(
-        endTime: DateTime.now(),
-        notes: notes ?? currentBreak.notes,
-      );
-
-      await _firestore
-          .collection('time_entries')
-          .doc(timeEntryId)
-          .collection('breaks')
-          .doc(breakId)
-          .update(updatedBreak.toJson());
-
-      return updatedBreak;
-    } catch (e) {
-      throw Exception('Failed to end break: $e');
-    }
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return BreakRecord.fromJson(data);
+    }).toList();
   }
 
   // Get current active break for a time entry
   Future<BreakRecord?> getCurrentBreak(String timeEntryId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('time_entries')
-          .doc(timeEntryId)
-          .collection('breaks')
-          .where('endTime', isNull: true)
-          .orderBy('startTime', descending: true)
-          .limit(1)
-          .get();
+    final snapshot =
+        await _db
+            .collection('time_entries')
+            .doc(timeEntryId)
+            .collection('breaks')
+            .where('endTime', isNull: true)
+            .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        final doc = querySnapshot.docs.first;
-        final data = doc.data();
-        data['id'] = doc.id;
-        return BreakRecord.fromJson(data);
+    if (snapshot.docs.isEmpty) return null;
+
+    final doc = snapshot.docs.first;
+    final data = doc.data();
+    data['id'] = doc.id;
+    return BreakRecord.fromJson(data);
+  }
+
+  // Calculate total hours worked
+  Future<double> getTotalHoursWorked({
+    required String userId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final entries = await getTimeEntries(
+      userId: userId,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    Duration totalWorked = Duration.zero;
+    Duration totalBreaks = Duration.zero;
+
+    // Group entries by clockIn/clockOut pairs
+    final clockIns =
+        entries.where((e) => e.type == TimeEntryType.clockIn).toList();
+    for (final clockIn in clockIns) {
+      final clockOut = entries.firstWhere(
+        (e) =>
+            e.type == TimeEntryType.clockOut &&
+            e.timestamp.isAfter(clockIn.timestamp),
+        orElse: () => clockIn,
+      );
+
+      if (clockOut.type == TimeEntryType.clockOut) {
+        final duration = clockOut.timestamp.difference(clockIn.timestamp);
+        totalWorked += duration;
+
+        // Calculate break time
+        final breaks = await getBreaksForTimeEntry(clockIn.id);
+        totalBreaks += breaks.fold<Duration>(
+          Duration.zero,
+          (prev, curr) => prev + curr.duration,
+        );
       }
-    } catch (e) {
-      // Log error
     }
-    return null;
+
+    // Convert to hours
+    final effectiveMinutes = totalWorked.inMinutes - totalBreaks.inMinutes;
+    return effectiveMinutes / 60.0;
   }
 
-  // Get all breaks for a time entry
-  Future<List<BreakRecord>> getBreaksForTimeEntry(String timeEntryId) async {
-    try {
-      final querySnapshot = await _firestore
-          .collection('time_entries')
-          .doc(timeEntryId)
-          .collection('breaks')
-          .orderBy('startTime', descending: false)
-          .get();
-
-      return querySnapshot.docs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return BreakRecord.fromJson(data);
-      }).toList();
-    } catch (e) {
-      return [];
-    }
-  }
-
-  // Check if user is currently on a break
+  // Check if a user is currently on break
   Future<bool> isCurrentlyOnBreak() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
     final latestEntry = await getLatestTimeEntry();
     if (latestEntry == null || latestEntry.type != TimeEntryType.clockIn) {
       return false;
@@ -679,53 +631,14 @@ class TimeTrackingService {
     return currentBreak != null;
   }
 
-  // Calculate total break duration for a date range
-  Future<Duration> getTotalBreakDuration({
-    required DateTime startDate,
-    required DateTime endDate,
-    String? userId,
-    bool? isPaidBreak,
-  }) async {
-    final entries = await getTimeEntries(
-      startDate: startDate,
-      endDate: endDate,
-      userId: userId,
-    );
-
-    Duration totalDuration = Duration.zero;
-
-    for (final entry in entries) {
-      final breaks = await getBreaksForTimeEntry(entry.id);
-      for (final breakRecord in breaks) {
-        if (isPaidBreak == null || breakRecord.isPaidBreak == isPaidBreak) {
-          totalDuration += breakRecord.duration;
-        }
-      }
+  // Process location data for clock in/out
+  Future<Map<String, double>> _getLocationData() async {
+    final validationResult = await _validateLocation();
+    if (!validationResult['success']) {
+      throw Exception(validationResult['error']);
     }
 
-    return totalDuration;
-  }
-
-  // Calculate effective working hours (excluding unpaid breaks)
-  Future<double> getEffectiveHoursWorked({
-    required DateTime startDate,
-    required DateTime endDate,
-    String? userId,
-  }) async {
-    final totalHours = await getTotalHoursWorked(
-      startDate: startDate,
-      endDate: endDate,
-      userId: userId,
-    );
-
-    final unpaidBreakDuration = await getTotalBreakDuration(
-      startDate: startDate,
-      endDate: endDate,
-      userId: userId,
-      isPaidBreak: false,
-    );
-
-    final effectiveHours = totalHours - (unpaidBreakDuration.inMinutes / 60.0);
-    return effectiveHours > 0 ? effectiveHours : 0;
+    final position = validationResult['position'];
+    return {'latitude': position.latitude, 'longitude': position.longitude};
   }
 }

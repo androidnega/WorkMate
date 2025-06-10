@@ -296,23 +296,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                           fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                         ),
-                                      ),                            ),
+                                      ),
+                            ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 16),                    // Password Reset Link
+                    const SizedBox(height: 16), // Password Reset Link
                     Center(
                       child: TextButton(
-                        onPressed: _isLoading ? null : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const PasswordResetScreen(),
-                            ),
-                          );
-                        },
+                        onPressed:
+                            _isLoading
+                                ? null
+                                : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              const PasswordResetScreen(),
+                                    ),
+                                  );
+                                },
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(
@@ -392,7 +398,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Contact your administrator for account creation',
                               style: const TextStyle(
                                 color: Color(0xFF1F2937),
-                                fontSize: 14,                              ),
+                                fontSize: 14,
+                              ),
                             ),
                           ),
 
@@ -404,7 +411,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const PasswordResetScreen(),
+                                  builder:
+                                      (context) => const PasswordResetScreen(),
                                 ),
                               );
                             },

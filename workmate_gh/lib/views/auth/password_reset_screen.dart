@@ -89,11 +89,11 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
 
                   // Subtitle
                   Text(
-                    _emailSent 
+                    _emailSent
                         ? 'We\'ve sent password reset instructions to ${_emailController.text}'
                         : 'Enter your email address and we\'ll send you instructions to reset your password',
                     style: const TextStyle(
-                      fontSize: 16, 
+                      fontSize: 16,
                       color: AppTheme.textSecondary,
                     ),
                     textAlign: TextAlign.center,
@@ -142,7 +142,8 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                               width: double.infinity,
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : _sendPasswordReset,
+                                onPressed:
+                                    _isLoading ? null : _sendPasswordReset,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.infoBlue,
                                   foregroundColor: Colors.white,
@@ -151,24 +152,26 @@ class _PasswordResetScreenState extends State<PasswordResetScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
-                                child: _isLoading
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
+                                child:
+                                    _isLoading
+                                        ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.white,
+                                                ),
+                                          ),
+                                        )
+                                        : const Text(
+                                          'Send Reset Instructions',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                      )
-                                    : const Text(
-                                        'Send Reset Instructions',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
                               ),
                             ),
                           ],

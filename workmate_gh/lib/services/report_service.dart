@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
+import 'package:universal_html/html.dart' as html;
 import '../models/app_user.dart';
 import '../services/time_tracking_service.dart';
-import 'dart:html' as html;
 
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -223,16 +223,21 @@ class ReportService {
     return const ListToCsvConverter().convert(csvData);
   }
 
-  // Download CSV file in web browser
+  // Download CSV file
   void downloadCSV(String csvContent, String filename) {
+    // Create the blob
     final bytes = csvContent.codeUnits;
     final blob = html.Blob([bytes]);
+
+    // Create download URL
     final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor =
-        html.document.createElement('a') as html.AnchorElement
-          ..href = url
-          ..style.display = 'none'
-          ..download = filename;
+
+    // Create and click the download link
+    final anchor = html.AnchorElement()
+      ..href = url
+      ..style.display = 'none'
+      ..download = filename;
+
     html.document.body?.children.add(anchor);
     anchor.click();
     html.document.body?.children.remove(anchor);

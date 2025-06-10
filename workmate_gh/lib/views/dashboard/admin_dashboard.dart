@@ -75,7 +75,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         );
       }
-    }  }
+    }
+  }
 
   Future<void> _showUserCreationDialog(BuildContext context) async {
     final nameController = TextEditingController();
@@ -87,163 +88,178 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Create New User'),
-          content: SizedBox(
-            width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<UserRole>(
-                  value: selectedRole,
-                  decoration: const InputDecoration(
-                    labelText: 'User Role',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [UserRole.manager, UserRole.worker].map((role) {
-                    return DropdownMenuItem(
-                      value: role,
-                      child: Text(role.name.toUpperCase()),
-                    );
-                  }).toList(),
-                  onChanged: (role) {
-                    setState(() {
-                      selectedRole = role!;
-                      selectedCompanyId = null; // Reset company selection
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                if (selectedRole == UserRole.manager || selectedRole == UserRole.worker)
-                  DropdownButtonFormField<String>(
-                    value: selectedCompanyId,
-                    decoration: const InputDecoration(
-                      labelText: 'Assign to Company',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _companies.map((company) {
-                      return DropdownMenuItem(
-                        value: company.id,
-                        child: Text(company.name),
-                      );
-                    }).toList(),
-                    onChanged: (companyId) {
-                      setState(() {
-                        selectedCompanyId = companyId;
-                      });
-                    },
-                  ),
-                if (tempPassword.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.successGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.successGreen),
-                    ),
+      builder:
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  title: const Text('Create New User'),
+                  content: SizedBox(
+                    width: 450,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Temporary Password:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          tempPassword,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 16,
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Name',
+                            border: OutlineInputBorder(),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Share this password securely with the user. They will be prompted to change it on first login.',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: emailController,
+                          decoration: const InputDecoration(
+                            labelText: 'Email Address',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<UserRole>(
+                          value: selectedRole,
+                          decoration: const InputDecoration(
+                            labelText: 'User Role',
+                            border: OutlineInputBorder(),
+                          ),
+                          items:
+                              [UserRole.manager, UserRole.worker].map((role) {
+                                return DropdownMenuItem(
+                                  value: role,
+                                  child: Text(role.name.toUpperCase()),
+                                );
+                              }).toList(),
+                          onChanged: (role) {
+                            setState(() {
+                              selectedRole = role!;
+                              selectedCompanyId =
+                                  null; // Reset company selection
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        if (selectedRole == UserRole.manager ||
+                            selectedRole == UserRole.worker)
+                          DropdownButtonFormField<String>(
+                            value: selectedCompanyId,
+                            decoration: const InputDecoration(
+                              labelText: 'Assign to Company',
+                              border: OutlineInputBorder(),
+                            ),
+                            items:
+                                _companies.map((company) {
+                                  return DropdownMenuItem(
+                                    value: company.id,
+                                    child: Text(company.name),
+                                  );
+                                }).toList(),
+                            onChanged: (companyId) {
+                              setState(() {
+                                selectedCompanyId = companyId;
+                              });
+                            },
+                          ),
+                        if (tempPassword.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.successGreen.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.successGreen),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Temporary Password:',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 4),
+                                SelectableText(
+                                  tempPassword,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Share this password securely with the user. They will be prompted to change it on first login.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (isLoading)
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          ),
                       ],
                     ),
                   ),
-                ],
-                if (isLoading)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: CircularProgressIndicator(),
-                  ),
-              ],
-            ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed:
+                          (isLoading ||
+                                  nameController.text.trim().isEmpty ||
+                                  emailController.text.trim().isEmpty ||
+                                  selectedCompanyId == null)
+                              ? null
+                              : () async {
+                                setState(() => isLoading = true);
+
+                                try {
+                                  final authService = AuthService();
+                                  final password = await authService
+                                      .createUserWithTempPassword(
+                                        email: emailController.text.trim(),
+                                        name: nameController.text.trim(),
+                                        role: selectedRole,
+                                        companyId: selectedCompanyId!,
+                                        createdBy: widget.user.uid,
+                                      );
+
+                                  setState(() {
+                                    tempPassword = password;
+                                    isLoading = false;
+                                  });
+
+                                  // Refresh data
+                                  await _loadData();
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '${selectedRole.name.toUpperCase()} created successfully!',
+                                      ),
+                                      backgroundColor: AppTheme.successGreen,
+                                    ),
+                                  );
+                                } catch (e) {
+                                  setState(() => isLoading = false);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error creating user: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                      child: Text(
+                        tempPassword.isEmpty ? 'Create User' : 'Done',
+                      ),
+                    ),
+                  ],
+                ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: (isLoading || 
-                          nameController.text.trim().isEmpty ||
-                          emailController.text.trim().isEmpty ||
-                          selectedCompanyId == null)
-                  ? null
-                  : () async {
-                      setState(() => isLoading = true);
-
-                      try {
-                        final authService = AuthService();
-                        final password = await authService.createUserWithTempPassword(
-                          email: emailController.text.trim(),
-                          name: nameController.text.trim(),
-                          role: selectedRole,
-                          companyId: selectedCompanyId!,
-                          createdBy: widget.user.uid,
-                        );
-
-                        setState(() {
-                          tempPassword = password;
-                          isLoading = false;
-                        });
-
-                        // Refresh data
-                        await _loadData();
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${selectedRole.name.toUpperCase()} created successfully!'),
-                            backgroundColor: AppTheme.successGreen,
-                          ),
-                        );
-                      } catch (e) {
-                        setState(() => isLoading = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error creating user: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    },
-              child: Text(tempPassword.isEmpty ? 'Create User' : 'Done'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

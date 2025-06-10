@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/time_tracking_service.dart';
-import 'package:workmate_gh/services/auth_service.dart';
 import 'package:workmate_gh/core/theme/app_theme.dart';
 import 'package:workmate_gh/widgets/break_button.dart';
+import 'package:workmate_gh/views/manager/detailed_attendance_screen.dart';
 
 class WorkerDashboard extends StatefulWidget {
   final AppUser user;
@@ -55,9 +56,27 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
         _currentBreakId = currentBreakId;
       });
     } catch (e) {
-      // Log error - consider using a proper logging framework in production
-      // print('Error loading status: $e');
+      // Handle error
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
+  }
+
+  void _viewTimesheet() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => DetailedAttendanceScreen(
+              manager: widget.user, // We'll use worker as "manager" here
+              workerId: widget.user.uid,
+              workerName: widget.user.name,
+            ),
+      ),
+    );
   }
 
   @override
@@ -311,13 +330,18 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                       'View your time tracking history',
                       Icons.history,
                       AppTheme.infoBlue,
-                      () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Timesheet feature coming soon!'),
-                          ),
-                        );
-                      },
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => DetailedAttendanceScreen(
+                                manager:
+                                    widget.user, // Using worker as "manager"
+                                workerId: widget.user.uid,
+                                workerName: widget.user.name,
+                              ),
+                        ),
+                      ),
                     ),
                     _buildDashboardCard(
                       'Schedule',
@@ -397,8 +421,18 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     });
 
     try {
+      final locationData = await _validateLocation();
+      if (!locationData['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(locationData['error'])));
+        }
+        return;
+      }
+
       if (_isClockedIn) {
-        await _timeTrackingService.clockOut();
+        await _timeTrackingService.clockOut(locationData['location']);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -408,7 +442,7 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
           );
         }
       } else {
-        await _timeTrackingService.clockIn();
+        await _timeTrackingService.clockIn(locationData['location']);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -453,6 +487,48 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  // Helper method to validate location
+  Future<Map<String, dynamic>> _validateLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return {
+          'success': false,
+          'error': 'Location services are disabled. Please enable GPS.',
+        };
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          return {
+            'success': false,
+            'error': 'Location permissions are denied.',
+          };
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        return {
+          'success': false,
+          'error': 'Location permissions are permanently denied.',
+        };
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+      return {
+        'success': true,
+        'location': {
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        },
+      };
+    } catch (e) {
+      return {'success': false, 'error': 'Could not get location: $e'};
     }
   }
 
@@ -524,14 +600,14 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, size: 32, color: color),
+                  child: Icon(icon, color: color),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Text(
                   title,
                   style: const TextStyle(
@@ -541,13 +617,12 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
                   description,
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppTheme.textSecondary,
-                    height: 1.3,
                   ),
                   textAlign: TextAlign.center,
                 ),

@@ -26,7 +26,23 @@ class CreateUserApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Create Test User',
+      title: 'WorkMate GH Admin Setup',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF5C2A2A), // Ghana red/brown
+          brightness: Brightness.light,
+        ),
+        fontFamily: 'Inter',
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF5C2A2A),
+          brightness: Brightness.dark,
+        ),
+        fontFamily: 'Inter',
+      ),
       home: const CreateUserScreen(),
     );
   }
@@ -41,8 +57,9 @@ class CreateUserScreen extends StatefulWidget {
 
 class _CreateUserScreenState extends State<CreateUserScreen> {
   final AuthService _authService = AuthService();
-  String _status = 'Ready to create admin user';
+  String _status = 'Ready to create initial admin user';
   bool _isLoading = false;
+  bool _isCreated = false;
 
   Future<void> _createAdminUser() async {
     setState(() {
@@ -51,15 +68,15 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
     });
 
     try {
-      final user = await _authService.registerAdminUser(
+      await _authService.registerAdminUser(
         'admin@workmate.com',
         'Admin123!',
         'Test Admin',
       );
 
       setState(() {
-        _status =
-            'Admin user created successfully!\nEmail: admin@workmate.com\nPassword: Admin123!';
+        _isCreated = true;
+        _status = 'Admin user created successfully!';
       });
     } catch (e) {
       setState(() {
@@ -75,35 +92,162 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Test User')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _isLoading ? null : _createAdminUser,
-              child: const Text('Create Admin User'),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
+      body: Center(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Responsive width
+            final containerWidth =
+                constraints.maxWidth > 600 ? 500.0 : constraints.maxWidth * 0.9;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Center(
+                child: Container(
+                  width: containerWidth,
+                  padding: const EdgeInsets.all(32.0),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Logo/Icon
+                      Icon(
+                        Icons.admin_panel_settings,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Title
+                      Text(
+                        'WorkMate GH Setup',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Subtitle
+                      Text(
+                        'Create Initial Admin Account',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Status Container
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color:
+                              _isCreated
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color:
+                                _isCreated
+                                    ? Colors.green.withOpacity(0.3)
+                                    : Theme.of(context).colorScheme.outline,
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _status,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodyLarge?.copyWith(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                height: 1.5,
+                              ),
+                            ),
+                            if (_isCreated) ...[
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Login Credentials:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const Text('Email: admin@workmate.com'),
+                              const Text('Password: Admin123!'),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Action Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed:
+                              _isLoading || _isCreated
+                                  ? null
+                                  : _createAdminUser,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            foregroundColor:
+                                Theme.of(context).colorScheme.onPrimary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child:
+                              _isLoading
+                                  ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                  : Text(
+                                    _isCreated
+                                        ? 'Admin Created ✓'
+                                        : 'Create Admin User',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              child: Text(
-                _status,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-            ),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              ),
-          ],
+            );
+          },
         ),
       ),
     );
