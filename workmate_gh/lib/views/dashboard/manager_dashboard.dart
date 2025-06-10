@@ -3,6 +3,8 @@ import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/services/company_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
 import 'package:workmate_gh/core/theme/app_theme.dart';
+import 'package:workmate_gh/views/manager/team_reports_screen.dart';
+import 'package:workmate_gh/views/manager/team_attendance_screen.dart';
 
 class ManagerDashboard extends StatefulWidget {
   final AppUser user;
@@ -121,7 +123,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                           ],
                         ),
                       ),
-                      Container(
+                      SizedBox(
                         height: 40,
                         child: ElevatedButton.icon(
                           onPressed: _logout,
@@ -410,42 +412,19 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
           ),
     );
   }
-
   void _showTeamAttendance() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Team Attendance'),
-            content: const Text(
-              'Team attendance monitoring will be implemented here.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TeamAttendanceScreen(manager: widget.user),
+      ),
     );
   }
 
   void _showTeamReports() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Team Reports'),
-            content: const Text(
-              'Team performance reports will be implemented here.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TeamReportsScreen(manager: widget.user),
+      ),
     );
   }
 

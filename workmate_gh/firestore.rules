@@ -1,0 +1,180 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for user authentication and roles
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isManager() {
+      return isAuthenticated() && getUserData().role == 'manager';
+    }
+    
+    function isWorker() {
+      return isAuthenticated() && getUserData().role == 'worker';
+    }
+    
+    function getUserCompanyId() {
+      return getUserData().companyId;
+    }
+    
+    function isOwnerOrSameCompany(userId) {
+      return request.auth.uid == userId || 
+             getUserCompanyId() == get(/databases/$(database)/documents/users/$(userId)).data.companyId;
+    }
+    
+    function hasValidLocation(data) {
+      return data.keys().hasAll(['location']) && 
+             data.location.keys().hasAll(['lat', 'lng']) &&
+             data.location.lat is number && 
+             data.location.lng is number &&
+             data.location.lat >= -90 && data.location.lat <= 90 &&
+             data.location.lng >= -180 && data.location.lng <= 180;
+    }
+    
+    function isValidTimeEntryType(type) {
+      return type in ['clockIn', 'clockOut', 'breakStart', 'breakEnd'];
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Allow users to read their own data
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow admins to read all users
+      allow read: if isAdmin();
+      
+      // Allow managers to read workers in their company
+      allow read: if isManager() && 
+                     resource.data.companyId == getUserCompanyId() && 
+                     resource.data.role == 'worker';
+      
+      // Only admins can create admin or manager accounts
+      allow create: if isAdmin() && 
+                       request.resource.data.keys().hasAll(['uid', 'email', 'name', 'role', 'companyId', 'createdAt', 'isActive']) &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.role in ['admin', 'manager', 'worker'] &&
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      // Allow managers to create workers for their company
+      allow create: if isManager() && 
+                       request.resource.data.keys().hasAll(['uid', 'email', 'name', 'role', 'companyId', 'createdAt', 'isActive']) &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.role == 'worker' &&
+                       request.resource.data.companyId == getUserCompanyId() &&
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      // Allow users to update their own profile (limited fields)
+      allow update: if isAuthenticated() && 
+                       request.auth.uid == userId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'lastLoginAt', 'isDefaultPassword']);
+      
+      // Allow admins to update any user
+      allow update: if isAdmin();
+      
+      // Allow managers to update workers in their company (limited fields)
+      allow update: if isManager() && 
+                       resource.data.companyId == getUserCompanyId() && 
+                       resource.data.role == 'worker' &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']);
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // Companies collection rules
+    match /companies/{companyId} {
+      // Allow admins to read all companies
+      allow read: if isAdmin();
+      
+      // Allow managers and workers to read their assigned company
+      allow read: if isAuthenticated() && getUserCompanyId() == companyId;
+      
+      // Only admins can create companies
+      allow create: if isAdmin() && 
+                       request.resource.data.keys().hasAll(['name', 'address', 'createdAt', 'isActive', 'adminId']) &&
+                       request.resource.data.adminId == request.auth.uid;
+      
+      // Only admins can update companies
+      allow update: if isAdmin();
+      
+      // Allow managers to update limited fields of their assigned company
+      allow update: if isManager() && 
+                       getUserCompanyId() == companyId &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'email']);
+      
+      // Only admins can delete companies
+      allow delete: if isAdmin();
+    }
+    
+    // Time entries collection rules
+    match /time_entries/{entryId} {
+      // Allow workers to read their own time entries
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Allow managers to read time entries for workers in their company
+      allow read: if isManager() && 
+                     resource.data.companyId == getUserCompanyId();
+      
+      // Allow admins to read all time entries
+      allow read: if isAdmin();
+      
+      // Allow workers to create their own time entries with validation
+      allow create: if isWorker() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.companyId == getUserCompanyId() &&
+                       request.resource.data.keys().hasAll(['userId', 'companyId', 'timestamp', 'type']) &&
+                       isValidTimeEntryType(request.resource.data.type) &&
+                       request.resource.data.timestamp is timestamp &&
+                       // Require location for clock-in entries
+                       (request.resource.data.type != 'clockIn' || hasValidLocation(request.resource.data));
+      
+      // Prevent updates to time entries (they should be immutable)
+      allow update: if false;
+      
+      // Only admins can delete time entries (for data correction)
+      allow delete: if isAdmin();
+    }
+    
+    // System logs collection (for audit trail)
+    match /audit_logs/{logId} {
+      // Only admins can read audit logs
+      allow read: if isAdmin();
+      
+      // System can write audit logs (this would be done server-side)
+      allow create: if false; // Disable client-side audit log creation
+      
+      // Audit logs are immutable
+      allow update, delete: if false;
+    }
+    
+    // Test collection for diagnostics (development only)
+    match /_test/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Diagnostic test collection
+    match /_diagnostic_test/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Connection test collection
+    match /_connection_test/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Fallback rule - deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

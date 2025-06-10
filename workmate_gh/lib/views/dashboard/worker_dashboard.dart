@@ -42,171 +42,263 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome, ${widget.user.name}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Worker Dashboard',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.grey[600],
+                // Header Section
+                Container(
+                  padding: const EdgeInsets.all(24.0),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.borderLight, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.successGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.work_outline,
+                          color: AppTheme.successGreen,
+                          size: 24,
+                        ),
                       ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, ${widget.user.name}',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.headlineSmall?.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Worker Dashboard',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: _logout,
+                          icon: const Icon(Icons.logout, size: 18),
+                          label: const Text('Logout'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade500,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Clock In/Out Card - Enhanced Design
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardWhite,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.borderLight, width: 1),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: (_isClockedIn
+                                  ? AppTheme.successGreen
+                                  : AppTheme.textLight)
+                              .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          _isClockedIn ? Icons.work : Icons.work_off,
+                          size: 64,
+                          color:
+                              _isClockedIn
+                                  ? AppTheme.successGreen
+                                  : AppTheme.textLight,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        _isClockedIn ? 'Currently Working' : 'Not Working',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_lastClockTime != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundLight,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _isClockedIn
+                                ? 'Clocked in at ${_formatTime(_lastClockTime!)}'
+                                : 'Last clocked out at ${_formatTime(_lastClockTime!)}',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _toggleClock,
+                          icon:
+                              _isLoading
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                  : Icon(
+                                    _isClockedIn ? Icons.logout : Icons.login,
+                                    size: 20,
+                                  ),
+                          label: Text(
+                            _isLoading
+                                ? 'Processing...'
+                                : (_isClockedIn ? 'Clock Out' : 'Clock In'),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                _isClockedIn
+                                    ? Colors.red.shade500
+                                    : AppTheme.successGreen,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            disabledBackgroundColor: AppTheme.textLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.1,
+                  children: [
+                    _buildDashboardCard(
+                      'My Timesheet',
+                      'View your time tracking history',
+                      Icons.history,
+                      AppTheme.infoBlue,
+                      () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Timesheet feature coming soon!'),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDashboardCard(
+                      'Schedule',
+                      'View your work schedule',
+                      Icons.calendar_today,
+                      AppTheme.successGreen,
+                      () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Schedule feature coming soon!'),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDashboardCard(
+                      'Leave Requests',
+                      'Request time off',
+                      Icons.event_busy,
+                      AppTheme.warningOrange,
+                      () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Leave requests feature coming soon!',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDashboardCard(
+                      'Profile',
+                      'View and edit your profile',
+                      Icons.person,
+                      Colors.purple.shade500,
+                      () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile feature coming soon!'),
+                          ),
+                        );
+                      },
                     ),
                   ],
-                ),
-                ElevatedButton.icon(
-                  onPressed: _logout,
-                  icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-
-            // Clock In/Out Card
-            Card(
-              elevation: 6,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Icon(
-                      _isClockedIn ? Icons.work : Icons.work_off,
-                      size: 64,
-                      color: _isClockedIn ? Colors.green : Colors.grey,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _isClockedIn ? 'Currently Working' : 'Not Working',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    if (_lastClockTime != null)
-                      Text(
-                        _isClockedIn
-                            ? 'Clocked in at ${_formatTime(_lastClockTime!)}'
-                            : 'Last clocked out at ${_formatTime(_lastClockTime!)}',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _toggleClock,
-                      icon:
-                          _isLoading
-                              ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                              : Icon(_isClockedIn ? Icons.logout : Icons.login),
-                      label: Text(
-                        _isLoading
-                            ? 'Processing...'
-                            : (_isClockedIn ? 'Clock Out' : 'Clock In'),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _isClockedIn ? Colors.red : Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            SizedBox(
-              height: MediaQuery.of(context).size.height - 400,
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildDashboardCard(
-                    'My Timesheet',
-                    'View your time tracking history',
-                    Icons.history,
-                    Colors.blue,
-                    () {
-                      // Navigate to timesheet screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Timesheet feature coming soon!'),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDashboardCard(
-                    'Schedule',
-                    'View your work schedule',
-                    Icons.calendar_today,
-                    Colors.green,
-                    () {
-                      // Navigate to schedule screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Schedule feature coming soon!'),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDashboardCard(
-                    'Leave Requests',
-                    'Request time off',
-                    Icons.event_busy,
-                    Colors.orange,
-                    () {
-                      // Navigate to leave requests screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Leave requests feature coming soon!'),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDashboardCard(
-                    'Profile',
-                    'View and edit your profile',
-                    Icons.person,
-                    Colors.purple,
-                    () {
-                      // Navigate to profile screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profile feature coming soon!'),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -299,33 +391,52 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
     Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderLight, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, size: 32, color: color),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    height: 1.3,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

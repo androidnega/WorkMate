@@ -497,7 +497,7 @@ class _AssignManagerScreenState extends State<AssignManagerScreen> {
                       const SizedBox(height: 32),
 
                       // Submit Button
-                      Container(
+                      SizedBox(
                         height: 56,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _assignManager,

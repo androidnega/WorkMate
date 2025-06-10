@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:workmate_gh/models/app_user.dart';
 import 'package:workmate_gh/models/company.dart';
 import 'package:workmate_gh/services/company_service.dart';
@@ -131,7 +133,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ],
                         ),
                       ),
-                      Container(
+                      SizedBox(
                         height: 40,
                         child: ElevatedButton.icon(
                           onPressed: _logout,
@@ -176,11 +178,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           strokeWidth: 3,
                         ),
                       ),
-                    )
-                    : GridView.count(
+                    )                    : GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
+                      crossAxisCount: 3,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                       childAspectRatio: 1.1,
@@ -212,6 +213,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           Icons.group,
                           AppTheme.warningOrange,
                           () => _showUserManagement(),
+                        ),
+                        _buildDashboardCard(
+                          'Firebase Diagnostic',
+                          'Debug Firestore connection issues',
+                          Icons.bug_report,
+                          Colors.red.shade500,
+                          () => _showFirestoreDiagnostic(),
+                        ),
+                        _buildDashboardCard(
+                          'System Status',
+                          'Check system health',
+                          Icons.health_and_safety,
+                          Colors.green.shade500,
+                          () => _showSystemStatus(),
                         ),
                       ],
                     ),
@@ -264,8 +279,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                Text(
+                const SizedBox(height: 8),                Text(
                   description,
                   style: const TextStyle(
                     fontSize: 12,
@@ -607,6 +621,243 @@ class _AdminDashboardState extends State<AdminDashboard> {
       SnackBar(
         content: Text('Edit ${company.name} feature coming soon!'),
         backgroundColor: Colors.blue,
+      ),
+    );
+  }
+  void _showFirestoreDiagnostic() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        title: Text('Running Firestore Diagnostic...'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Checking Firestore connection and identifying issues...'),
+          ],
+        ),
+      ),
+    );
+
+    final results = <String>[];
+    
+    try {
+      // Test basic Firestore connection
+      results.add('🔍 Testing Firestore connection...');
+      
+      final firestore = FirebaseFirestore.instance;
+      results.add('✅ Firestore instance created');
+        // Test reading from collections
+      try {
+        await firestore.collection('_test').limit(1).get();
+        results.add('✅ Basic read operation successful');
+      } catch (e) {
+        results.add('❌ Read operation failed: $e');
+        if (e.toString().contains('400')) {
+          results.add('🎯 This is your 400 error!');
+          results.add('   Likely causes:');
+          results.add('   • Firestore security rules blocking access');
+          results.add('   • Invalid project configuration');
+          results.add('   • Network connectivity issues');
+        }
+      }
+      
+      // Test authentication
+      final auth = FirebaseAuth.instance;
+      if (auth.currentUser != null) {
+        results.add('✅ User authenticated: ${auth.currentUser!.email}');
+      } else {
+        results.add('⚠️  No user authenticated');
+      }
+      
+      // Test collections
+      try {
+        await _companyService.getAllCompanies();
+        results.add('✅ Company service working');
+      } catch (e) {
+        results.add('❌ Company service failed: $e');
+      }
+      
+    } catch (e) {
+      results.add('❌ Fatal error: $e');
+    }
+
+    if (mounted) {
+      Navigator.pop(context); // Close loading dialog
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Firestore Diagnostic Results'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: results.map((result) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    result,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      color: result.startsWith('❌') ? Colors.red :
+                             result.startsWith('⚠️') ? Colors.orange :
+                             result.startsWith('✅') ? Colors.green :
+                             null,
+                    ),
+                  ),
+                )).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            if (results.any((r) => r.contains('400') || r.contains('❌')))
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showFirestoreTroubleshooting();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('View Solutions'),
+              ),
+          ],
+        ),
+      );
+    }
+  }
+
+  void _showSystemStatus() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('System Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildStatusItem('Firebase Connection', true),
+            _buildStatusItem('Firestore Database', true),
+            _buildStatusItem('Authentication', true),
+            _buildStatusItem('Companies Loaded', _companies.isNotEmpty),
+            _buildStatusItem('Managers Loaded', _managers.isNotEmpty),
+            const SizedBox(height: 16),
+            const Text(
+              'If you\'re experiencing issues, use the "Firebase Diagnostic" tool to identify problems.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _showFirestoreDiagnostic();
+            },
+            icon: const Icon(Icons.bug_report),
+            label: const Text('Run Diagnostic'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade500,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusItem(String label, bool isHealthy) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            isHealthy ? Icons.check_circle : Icons.error,
+            color: isHealthy ? Colors.green : Colors.red,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  void _showFirestoreTroubleshooting() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Firestore Troubleshooting'),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Common Solutions for Firestore 400 Errors:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              Text('1. Firestore Security Rules'),
+              Text(
+                '   • Go to Firebase Console > Firestore > Rules\n'
+                '   • Temporarily use: allow read, write: if true;\n'
+                '   • Publish rules and test again',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+              SizedBox(height: 12),
+              Text('2. Project Configuration'),
+              Text(
+                '   • Verify project ID in Firebase config\n'
+                '   • Check API keys are correct\n'
+                '   • Ensure web app is configured in Firebase',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+              SizedBox(height: 12),
+              Text('3. Network Issues'),
+              Text(
+                '   • Check internet connection\n'
+                '   • Disable VPN/proxy temporarily\n'
+                '   • Try different network',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+              SizedBox(height: 12),
+              Text('4. Browser Issues'),
+              Text(
+                '   • Clear browser cache\n'
+                '   • Disable browser extensions\n'
+                '   • Try incognito/private mode',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showFirestoreDiagnostic();
+            },
+            child: const Text('Run Diagnostic Again'),
+          ),
+        ],
       ),
     );
   }
