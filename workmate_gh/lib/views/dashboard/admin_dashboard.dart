@@ -6,6 +6,7 @@ import 'package:workmate_gh/models/company.dart';
 import 'package:workmate_gh/services/company_service.dart';
 import 'package:workmate_gh/services/auth_service.dart';
 import 'package:workmate_gh/views/admin/assign_manager_screen.dart';
+import 'package:workmate_gh/views/admin/company_management_screen.dart';
 import 'package:workmate_gh/core/theme/app_theme.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -178,7 +179,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           strokeWidth: 3,
                         ),
                       ),
-                    )                    : GridView.count(
+                    )
+                    : GridView.count(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       crossAxisCount: 3,
@@ -279,7 +281,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),                Text(
+                const SizedBox(height: 8),
+                Text(
                   description,
                   style: const TextStyle(
                     fontSize: 12,
@@ -297,57 +300,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _showCompanyManagement() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Company Management'),
-            content: SizedBox(
-              width: double.maxFinite,
-              height: 400,
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('Companies (${_companies.length})')),
-                      ElevatedButton(
-                        onPressed: _createNewCompany,
-                        child: const Text('Add Company'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _companies.length,
-                      itemBuilder: (context, index) {
-                        final company = _companies[index];
-                        return ListTile(
-                          title: Text(company.name),
-                          subtitle: Text(company.address),
-                          trailing:
-                              company.isActive
-                                  ? const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green,
-                                  )
-                                  : const Icon(Icons.cancel, color: Colors.red),
-                          onTap: () => _editCompany(company),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder:
+                (context) => CompanyManagementScreen(currentUser: widget.user),
           ),
-    );
+        )
+        .then((_) {
+          // Refresh data when returning from company management
+          _loadData();
+        });
   }
 
   void _showManagerManagement() {
@@ -510,146 +473,34 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
-  void _createNewCompany() {
-    final nameController = TextEditingController();
-    final addressController = TextEditingController();
-    final phoneController = TextEditingController();
-    final emailController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Create New Company'),
-            content: SizedBox(
-              width: 400,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Company Name',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: addressController,
-                    decoration: const InputDecoration(
-                      labelText: 'Address',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: phoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Phone Number',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  if (nameController.text.trim().isNotEmpty &&
-                      addressController.text.trim().isNotEmpty) {
-                    final navigator = Navigator.of(context);
-                    final messenger = ScaffoldMessenger.of(context);
-
-                    try {
-                      await _companyService.createCompany(
-                        name: nameController.text.trim(),
-                        address: addressController.text.trim(),
-                        phone:
-                            phoneController.text.trim().isEmpty
-                                ? null
-                                : phoneController.text.trim(),
-                        email:
-                            emailController.text.trim().isEmpty
-                                ? null
-                                : emailController.text.trim(),
-                      );
-                      if (mounted) {
-                        navigator.pop();
-                        navigator.pop(); // Close parent dialog
-                      }
-                      _loadData(); // Refresh data
-
-                      if (mounted) {
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Company created successfully!'),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        messenger.showSnackBar(
-                          SnackBar(content: Text('Error creating company: $e')),
-                        );
-                      }
-                    }
-                  }
-                },
-                child: const Text('Create'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  void _editCompany(Company company) {
-    // Navigate to company editing screen
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Edit ${company.name} feature coming soon!'),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
   void _showFirestoreDiagnostic() async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        title: Text('Running Firestore Diagnostic...'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Checking Firestore connection and identifying issues...'),
-          ],
-        ),
-      ),
+      builder:
+          (context) => const AlertDialog(
+            title: Text('Running Firestore Diagnostic...'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Checking Firestore connection and identifying issues...'),
+              ],
+            ),
+          ),
     );
 
     final results = <String>[];
-    
+
     try {
       // Test basic Firestore connection
       results.add('🔍 Testing Firestore connection...');
-      
+
       final firestore = FirebaseFirestore.instance;
       results.add('✅ Firestore instance created');
-        // Test reading from collections
+
+      // Test reading from collections
       try {
         await firestore.collection('_test').limit(1).get();
         results.add('✅ Basic read operation successful');
@@ -663,7 +514,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           results.add('   • Network connectivity issues');
         }
       }
-      
+
       // Test authentication
       final auth = FirebaseAuth.instance;
       if (auth.currentUser != null) {
@@ -671,7 +522,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       } else {
         results.add('⚠️  No user authenticated');
       }
-      
+
       // Test collections
       try {
         await _companyService.getAllCompanies();
@@ -679,59 +530,70 @@ class _AdminDashboardState extends State<AdminDashboard> {
       } catch (e) {
         results.add('❌ Company service failed: $e');
       }
-      
     } catch (e) {
       results.add('❌ Fatal error: $e');
     }
 
     if (mounted) {
       Navigator.pop(context); // Close loading dialog
-      
+
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Firestore Diagnostic Results'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: results.map((result) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text(
-                    result,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      color: result.startsWith('❌') ? Colors.red :
-                             result.startsWith('⚠️') ? Colors.orange :
-                             result.startsWith('✅') ? Colors.green :
-                             null,
-                    ),
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Firestore Diagnostic Results'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children:
+                        results
+                            .map(
+                              (result) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Text(
+                                  result,
+                                  style: TextStyle(
+                                    fontFamily: 'monospace',
+                                    color:
+                                        result.startsWith('❌')
+                                            ? Colors.red
+                                            : result.startsWith('⚠️')
+                                            ? Colors.orange
+                                            : result.startsWith('✅')
+                                            ? Colors.green
+                                            : null,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
-                )).toList(),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-            if (results.any((r) => r.contains('400') || r.contains('❌')))
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _showFirestoreTroubleshooting();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade600,
-                  foregroundColor: Colors.white,
                 ),
-                child: const Text('View Solutions'),
               ),
-          ],
-        ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+                if (results.any((r) => r.contains('400') || r.contains('❌')))
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showFirestoreTroubleshooting();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('View Solutions'),
+                  ),
+              ],
+            ),
       );
     }
   }
@@ -739,43 +601,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showSystemStatus() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('System Status'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatusItem('Firebase Connection', true),
-            _buildStatusItem('Firestore Database', true),
-            _buildStatusItem('Authentication', true),
-            _buildStatusItem('Companies Loaded', _companies.isNotEmpty),
-            _buildStatusItem('Managers Loaded', _managers.isNotEmpty),
-            const SizedBox(height: 16),
-            const Text(
-              'If you\'re experiencing issues, use the "Firebase Diagnostic" tool to identify problems.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('System Status'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusItem('Firebase Connection', true),
+                _buildStatusItem('Firestore Database', true),
+                _buildStatusItem('Authentication', true),
+                _buildStatusItem('Companies Loaded', _companies.isNotEmpty),
+                _buildStatusItem('Managers Loaded', _managers.isNotEmpty),
+                const SizedBox(height: 16),
+                const Text(
+                  'If you\'re experiencing issues, use the "Firebase Diagnostic" tool to identify problems.',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showFirestoreDiagnostic();
+                },
+                icon: const Icon(Icons.bug_report),
+                label: const Text('Run Diagnostic'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade500,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _showFirestoreDiagnostic();
-            },
-            icon: const Icon(Icons.bug_report),
-            label: const Text('Run Diagnostic'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade500,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -799,66 +662,67 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _showFirestoreTroubleshooting() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Firestore Troubleshooting'),
-        content: const SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Common Solutions for Firestore 400 Errors:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Firestore Troubleshooting'),
+            content: const SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Common Solutions for Firestore 400 Errors:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16),
+                  Text('1. Firestore Security Rules'),
+                  Text(
+                    '   • Go to Firebase Console > Firestore > Rules\n'
+                    '   • Temporarily use: allow read, write: if true;\n'
+                    '   • Publish rules and test again',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                  SizedBox(height: 12),
+                  Text('2. Project Configuration'),
+                  Text(
+                    '   • Verify project ID in Firebase config\n'
+                    '   • Check API keys are correct\n'
+                    '   • Ensure web app is configured in Firebase',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                  SizedBox(height: 12),
+                  Text('3. Network Issues'),
+                  Text(
+                    '   • Check internet connection\n'
+                    '   • Disable VPN/proxy temporarily\n'
+                    '   • Try different network',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                  SizedBox(height: 12),
+                  Text('4. Browser Issues'),
+                  Text(
+                    '   • Clear browser cache\n'
+                    '   • Disable browser extensions\n'
+                    '   • Try incognito/private mode',
+                    style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ],
               ),
-              SizedBox(height: 16),
-              Text('1. Firestore Security Rules'),
-              Text(
-                '   • Go to Firebase Console > Firestore > Rules\n'
-                '   • Temporarily use: allow read, write: if true;\n'
-                '   • Publish rules and test again',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
               ),
-              SizedBox(height: 12),
-              Text('2. Project Configuration'),
-              Text(
-                '   • Verify project ID in Firebase config\n'
-                '   • Check API keys are correct\n'
-                '   • Ensure web app is configured in Firebase',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-              SizedBox(height: 12),
-              Text('3. Network Issues'),
-              Text(
-                '   • Check internet connection\n'
-                '   • Disable VPN/proxy temporarily\n'
-                '   • Try different network',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-              SizedBox(height: 12),
-              Text('4. Browser Issues'),
-              Text(
-                '   • Clear browser cache\n'
-                '   • Disable browser extensions\n'
-                '   • Try incognito/private mode',
-                style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showFirestoreDiagnostic();
+                },
+                child: const Text('Run Diagnostic Again'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showFirestoreDiagnostic();
-            },
-            child: const Text('Run Diagnostic Again'),
-          ),
-        ],
-      ),
     );
   }
 }
